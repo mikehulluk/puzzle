@@ -176,8 +176,8 @@ def gaussian2d(sz, mu, sigma):
     x = normpdf(x=arange(sz[0]), mu=mu[0], sigma = sigma)
     y = normpdf(x=arange(sz[1]), mu=mu[1], sigma = sigma)
     t = np.outer(x,y)
-    #sc = 1/np.max(t)
-    sc=1.
+    sc = 1/np.max(t)
+    #sc=1.
     return t*sc
 
 def build_simple_img2(sz, X0,X1,Y0,Y1, (d0, w0,m0,  d1, w1, m1,  d2, w2, m2,  d3, w3,m3) ):
@@ -213,46 +213,25 @@ def build_simple_img2(sz, X0,X1,Y0,Y1, (d0, w0,m0,  d1, w1, m1,  d2, w2, m2,  d3
     return im
 
 
-def build_simple_img(sz, X0,X1,Y0,Y1, (d0, w0,m0,  d1, w1, m1,  d2, w2, m2,  d3, w3,m3) ):
-    #im =zeros(sz)
-    #im[X0:X1,Y0:Y1] = 1.0
+def build_simple_img(sz, X0,X1,Y0,Y1, (d0, w0) ):
+    
+    
     X = (X0+X1)/2.
     Y = (Y0+Y1)/2.
-    
-    #m = 5. * 1e3
-    #t0 = gaussian2d(sz, mu=(X1+d0, Y), sigma=w0) * m0 
-    #t1 = gaussian2d(sz, mu=(X0-d1, Y), sigma=w1) * m1 
-    #t2 = gaussian2d(sz, mu=(X, Y1+d2), sigma=w2) * m2 
-    #t3 = gaussian2d(sz, mu=(X, Y0-d3), sigma=w3) * m3 
-    #ts = [t0,t1,t2,t3]
-    #ts = [np.clip(t,-1,1,) for t in ts]
-    #
-    #tot = ts[0]+ts[1]+ts[2]+ts[3]
-    #print tot.min(), tot.max()
-    #assert tot.min()>=-1 and tot.max() <=1.
-    #tot = np.clip(tot,-1,1)
-    
+ 
     im = zeros(sz)
-    
     im[X0:X1,Y0:Y1] = 1.
-    im[X1:X1+d0, Y-w0/2:Y+w0/2] = m0
-    im[X0-d1:X1, Y-w0/2:Y+w1/2] = m1
-    im[X-w2/2:X+w2/2, Y1:Y1+d2,] = m2
-    im[Y-w3/2:Y+w3/2, Y0-d3:Y1] = m3
-    
-    im[X1:X1+d0, Y-w0/2:Y+w0/2] = m0
-    
-    #im += tot
+    im += gaussian2d(sz, mu=(X1+np.fabs(d0), Y), sigma=w0) * 2
     im = np.clip(im,0,1)
     
     #figure()
-    #imshow(im)
+    #imshow(im.T)
     #show()
     
     return im
    
     
-    
+reses = []    
 
 def fit_piece(fname,fname_idx): 
     print fname 
@@ -317,40 +296,73 @@ def fit_piece(fname,fname_idx):
     print x0,x1
     
     w = ((x1-x0)/2 + (y1-y0)/2)/2. * 0.3
-    d = w
-    p0 = (d,w, d,w, -d,w, d,w)
-    p0 = (0,w,1., 0,w,1., 0,w,1., 0,w,1.,)
+    
+    
+    p0 = (0,w,) #, 0,w,1., 0,w,1., 0,w,1.,)
 
     im_norm = im_rot - np.min(im_rot)
     im_norm/= np.max(im_norm) 
-    im_norm-= 0.5
         
     def min_func(p):
+
         im = build_simple_img(im_rot.shape, x0,x1,y0,y1, p )
-        
-        
         diff = im_norm - im
-        res = np.sum( diff**2)
-        print p, res
-        print "IM-TEST", im_norm.min(), im_norm.max()
-        print "IM-ROT", im.min(), im.max()
-        print
+        res = np.sum(diff**2)
         return res
     
-    p = fmin(min_func, p0)#, args, xtol, ftol, maxiter, maxfun, full_output, disp, retall, callback)
-    
+    p = fmin(min_func, p0)
     im_opt = build_simple_img(im_rot.shape, x0,x1,y0,y1, (p) )
+    
+    
     f,axes = pylab.subplots(2)
     pylab.sca(axes[0])
     imshow(im_opt)
     pylab.sca(axes[1])
     imshow(im_rot)
-    pylab.show()
+    pylab.title("p[1]=%f"%p[1] )
+    pylab.savefig('analysis/%03d_bb_fit1.png'%fname_idx)
+    #pylab.show()
+    reses.append( p )
     
     pylab.close('all')
     #pylab.show() 
     
     
+    
+if not os.path.exists("analysis"):
+    os.makedirs("analysis")
+
+for i,piece_file in enumerate(piece_files): 
+    print piece_file 
+    fit_piece(piece_file,i) 
+    #if(i>20):
+    #    break
+
+reses = np.array(reses)
+pylab.figure()
+pylab.scatter( reses[:,0],reses[:,1] )
+pylab.figure()
+#pylab.scatter(reses[:,1] )
+#pylab.scatter( reses[:,0],reses[:,2] )
+pylab.show()
+    #break
+    #break
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
 def test_fits():
     import numpy as np
     import matplotlib.pyplot as plt
@@ -458,13 +470,3 @@ def test_fits():
 
 #test_fits()
 #exit(0)    
-    
-if not os.path.exists("analysis"):
-    os.makedirs("analysis")
-
-for i,piece_file in enumerate(piece_files): 
-    print piece_file 
-    fit_piece(piece_file,i) 
-    
-    #break
-    #break
