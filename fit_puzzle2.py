@@ -15,6 +15,7 @@ from itertools import combinations
 import os
 import math
 from scipy.optimize.optimize import fmin
+from functools import partial
 
 piece_files = sorted( glob.glob("build/piece*single_rot.png") ) 
 
@@ -213,9 +214,9 @@ def build_simple_img2(sz, X0,X1,Y0,Y1, (d0, w0,m0,  d1, w1, m1,  d2, w2, m2,  d3
     return im
 
 
-def build_simple_img(sz, X0,X1,Y0,Y1, (d0, w0) ):
+def build_simple_img(sz, X0,X1,Y0,Y1, p):
     
-    
+    (d0, w0) = p
     X = (X0+X1)/2.
     Y = (Y0+Y1)/2.
  
@@ -224,12 +225,15 @@ def build_simple_img(sz, X0,X1,Y0,Y1, (d0, w0) ):
     im += gaussian2d(sz, mu=(X1+np.fabs(d0), Y), sigma=w0) * 2
     im = np.clip(im,0,1)
     
-    #figure()
-    #imshow(im.T)
-    #show()
-    
     return im
-   
+
+def min_func_x(p, x0,x1,y0,y1, im_norm):
+
+    im = build_simple_img(im_norm.shape, x0,x1,y0,y1, p )
+    diff = im_norm - im
+    res = np.sum(diff**2)
+    return res
+       
     
 reses = []    
 
@@ -292,7 +296,7 @@ def fit_piece(fname,fname_idx):
     pts= np.array(pts)
     print pts
     x0,x1 = np.min(pts[:,0]), np.max(pts[:,0])
-    y0,y1 = np.min(pts[:,1]), np.max(pts[:,0])
+    y0,y1 = np.min(pts[:,1]), np.max(pts[:,1])
     print x0,x1
     
     w = ((x1-x0)/2 + (y1-y0)/2)/2. * 0.3
@@ -303,12 +307,8 @@ def fit_piece(fname,fname_idx):
     im_norm = im_rot - np.min(im_rot)
     im_norm/= np.max(im_norm) 
         
-    def min_func(p):
-
-        im = build_simple_img(im_rot.shape, x0,x1,y0,y1, p )
-        diff = im_norm - im
-        res = np.sum(diff**2)
-        return res
+        
+    min_func = partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm)
     
     p = fmin(min_func, p0)
     im_opt = build_simple_img(im_rot.shape, x0,x1,y0,y1, (p) )
