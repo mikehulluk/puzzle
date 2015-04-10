@@ -18,6 +18,7 @@ from scipy.optimize.optimize import fmin
 from functools import partial
 from constants import Dir
 import image_utils
+from caching import joblib_memory
 
 piece_files = sorted( glob.glob("build/piece*single_rot.png") ) 
 
@@ -105,6 +106,7 @@ reses = []
 
 
 
+@joblib_memory.cache
 def fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode):
     p_dir_out = fmin(partial(min_func_x, x0=x0, x1=x1, y0=y0, y1=y1, im_norm=im_norm, direction=direction, mode=mode), p0)
     return p_dir_out
@@ -124,41 +126,45 @@ def fit_piece(fname,fname_idx):
     pts = image_utils.get_corners_of_piece(im_rot)    
     
     
-    im_rot =im_rot.astype('float')
     
     
     
-    pylab.close('all')
+
     pts= np.array(pts)
-    print pts
     x0,x1 = np.min(pts[:,0]), np.max(pts[:,0])
     y0,y1 = np.min(pts[:,1]), np.max(pts[:,1])
-    print x0,x1
-    
-    w = ((x1-x0)/2 + (y1-y0)/2)/2. * 0.3
-    
-    
-    p0 = (0,w,) 
 
+    
+    
+    im_rot =im_rot.astype('float')
     im_norm = im_rot - np.min(im_rot)
     im_norm/= np.max(im_norm) 
         
     rect = zeros(im_norm.shape)
     rect[x0:x1,y0:y1] = 1.
+
+    w = ((x1-x0)/2 + (y1-y0)/2)/2. * 0.3
+    p0 = (0,w,) 
     
-    ## Adding:
+
     
     im_opt_dirs_out = []
     im_opt_dirs_in = []
      
     for direction in Dir.directions: 
         p_dir_out = fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode=GaussianImMode.Add)
-        im_opt_dirs_out.append(build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction, mode=GaussianImMode.Add))
+        im_out = build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction, mode=GaussianImMode.Add)
+        im_opt_dirs_out.append(im_out)
         reses.append( p_dir_out )
 
-        p_dir_in = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=direction,mode=GaussianImMode.Sub), p0)
-        im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction,mode=GaussianImMode.Sub) )
-        reses.append( ( -p_dir_out[0], -p_dir_out[1]) )
+        p_dir_in = fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode=GaussianImMode.Sub) 
+        #fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=direction,mode=GaussianImMode.Sub), p0)
+        im_in = build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction,mode=GaussianImMode.Sub)
+        im_opt_dirs_in.append(im_in)
+        reses.append( ( -p_dir_in[0], -p_dir_in[1]) )
+
+        
+
 
     
     im_opt_out = np.clip(sum(im_opt_dirs_out) - (3*rect),0.,1.)     

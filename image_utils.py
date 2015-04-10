@@ -7,8 +7,10 @@ from scipy.spatial.qhull import ConvexHull
 from itertools import combinations
 import math
 import pylab
+from caching import joblib_memory
 
 
+@joblib_memory.cache
 def align_to_axes(im_piece):
     pts = get_corners_of_piece(im_piece)
     median_angle = get_rotation_angle(pts)
@@ -54,7 +56,7 @@ def eval_area_pts(pt0,pt1,pt2,pt3):
     return ((lenA+lenC)/2.) *  ((lenB+lenD)/2.) 
 
 
-
+@joblib_memory.cache
 def get_corners_of_piece(piece):
     plot = False
     
@@ -69,8 +71,7 @@ def get_corners_of_piece(piece):
     if plot:
         pylab.plot(cvx_hull_pts[:,0], cvx_hull_pts[:,1],'rx') 
  
-    
-    
+
     squares = combinations( range(cvx_hull_pts.shape[0]), 4 ) 
     
     res = []
