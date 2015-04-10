@@ -104,6 +104,12 @@ reses = []
 
 
 
+
+def fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode):
+    p_dir_out = fmin(partial(min_func_x, x0=x0, x1=x1, y0=y0, y1=y1, im_norm=im_norm, direction=direction, mode=mode), p0)
+    return p_dir_out
+
+
 def fit_piece(fname,fname_idx): 
     print fname 
     im_piece = imread(fname) 
@@ -146,7 +152,7 @@ def fit_piece(fname,fname_idx):
     im_opt_dirs_in = []
      
     for direction in Dir.directions: 
-        p_dir_out = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=direction,mode=GaussianImMode.Add), p0)
+        p_dir_out = fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode=GaussianImMode.Add)
         im_opt_dirs_out.append(build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction, mode=GaussianImMode.Add))
         reses.append( p_dir_out )
 
