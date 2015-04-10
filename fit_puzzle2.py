@@ -51,10 +51,10 @@ class GaussianImMode:
     Add = "Add"
     Sub = "Sub"
 
-def build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0), include_square, mode ):
+def build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0),  mode ):
     im = zeros(sz)
-    if include_square:
-        im[x0:x1,y0:y1] = 1.
+    
+    im[x0:x1,y0:y1] = 1.
         
     if mode ==GaussianImMode.Add: 
         im += gaussian2d(sz, mu=(gX,gY), sigma=w0) * 2
@@ -67,7 +67,7 @@ def build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0), include_square, mode ):
     return im
 
 
-def build_img_from_p(p, sz, x0,x1,y0,y1, direction, include_square=True, mode=GaussianImMode.Add):
+def build_img_from_p(p, sz, x0,x1,y0,y1, direction, mode=GaussianImMode.Add):
     (d0, w0) = p
     X = (x0+x1)/2.
     Y = (y0+y1)/2.
@@ -82,7 +82,7 @@ def build_img_from_p(p, sz, x0,x1,y0,y1, direction, include_square=True, mode=Ga
         gX, gY = X, y0 - np.fabs(d0)
     else:  
         assert False
-    im = build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0),include_square=include_square, mode=mode )
+    im = build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0), mode=mode )
     
     im = np.clip(im,0,1)
     
@@ -145,7 +145,7 @@ def fit_piece(fname,fname_idx):
     mode = GaussianImMode.Add
     for i, dir in enumerate(dirs): 
         p_dir_out = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=dir,mode=mode), p0)
-        im_opt_dirs_out.append(build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir, include_square=True,mode=mode))
+        im_opt_dirs_out.append(build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir, mode=mode))
         reses.append( p_dir_out )
     
     
@@ -172,7 +172,7 @@ def fit_piece(fname,fname_idx):
     for dir in dirs:
         #i=0
         p_dir_in = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=dir,mode=mode), p0)
-        im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir, include_square=True,mode=mode) )
+        im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir,mode=mode) )
         reses.append( ( -p_dir_out[0], -p_dir_out[1]) )
     
     im_opt_in = im_opt_dirs_in[0] + im_opt_dirs_in[1] + im_opt_dirs_in[2] + im_opt_dirs_in[3] - (3*rect)
