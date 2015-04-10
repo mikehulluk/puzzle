@@ -1,6 +1,7 @@
 import glob 
 from matplotlib.image import imread 
-from matplotlib.pyplot import imshow, plot , figure, show
+from matplotlib.pyplot import imshow, plot , figure, show, subplots, legend,\
+    grid
 import pylab 
 from scipy.ndimage.interpolation import rotate, shift 
 
@@ -101,7 +102,7 @@ def min_func_x(p, x0,x1,y0,y1, im_norm, direction, mode):
        
     
 reses = []    
-
+weights = []
 
 
 
@@ -147,6 +148,7 @@ def fit_piece(fname,fname_idx):
     p0 = (0,w,) 
     
 
+    do_plot=False
     
     im_opt_dirs_out = []
     im_opt_dirs_in = []
@@ -158,12 +160,49 @@ def fit_piece(fname,fname_idx):
         reses.append( p_dir_out )
 
         p_dir_in = fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode=GaussianImMode.Sub) 
-        #fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=direction,mode=GaussianImMode.Sub), p0)
         im_in = build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction,mode=GaussianImMode.Sub)
         im_opt_dirs_in.append(im_in)
         reses.append( ( -p_dir_in[0], -p_dir_in[1]) )
 
+        im_out_diff = im_out - rect
+        im_in_diff = im_in - rect
         
+        xs,origin,sum_axis ={
+            Dir.Right: (range(im_norm.shape[0]), x1, 1),       
+            Dir.Left:  (range(im_norm.shape[0]), x0, 1),
+            Dir.Up: (range(im_norm.shape[1]), y1, 0),       
+            Dir.Down:  (range(im_norm.shape[1]), y0, 0),
+        }[direction]
+        
+        #if direction==Dir.Right:
+        #    xs = range(0, im_norm.shape[0])
+        #    origin = x1
+        #    sum_axis = 1
+            
+        out_sum = np.sum( im_out_diff, sum_axis)
+        in_sum = np.sum( im_in_diff, sum_axis)
+        out_weighted = np.fabs(xs-origin)**2 * out_sum 
+        in_weighted = np.fabs(xs-origin)**2 * in_sum
+        
+        if do_plot:
+            f,axes = subplots(2)
+            axes[0].imshow( im_out_diff.T )
+            axes[1].imshow( im_in_diff.T * -1 )
+        
+            figure()
+            plot(xs,out_sum, label="out" )
+            plot(xs,in_sum, label="in" )
+            plot(xs,out_weighted, label="out-weighted" )
+            plot(xs,in_weighted, label="in-weighted" )
+            grid()
+            plot([origin], [0], 'x')
+            legend()
+            pylab.show()
+        
+        weight = out_weighted + in_weighted
+        weights.append(weight)
+            
+            
 
 
     
@@ -194,20 +233,21 @@ for i,piece_file in enumerate(piece_files):
     #    break
 
 reses = np.array(reses)
+weights = np.array(weights)
+
 pylab.figure()
 pylab.scatter( reses[:,0],reses[:,1] )
 pylab.xlabel("GaussianDist (d0)")
 pylab.ylabel("Strength (m)")
+
 pylab.figure()
 pylab.plot( np.fabs(reses[:,0]) * reses[:,1], 'o' )
-#pylab.scatter(reses[:,1] )
-#pylab.scatter( reses[:,0],reses[:,2] )
-pylab.show()
-    #break
-    #break
+
+
+pylab.figure()
+pylab.plot( weights, 'o' )
     
-    
-    
+pylab.show()    
     
     
     
