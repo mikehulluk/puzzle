@@ -141,41 +141,22 @@ def fit_piece(fname,fname_idx):
     rect[x0:x1,y0:y1] = 1.
     
     ## Adding:
-    directions = [Dir.Right, Dir.Left, Dir.Up, Dir.Down]
+    
     im_opt_dirs_out = []
+    im_opt_dirs_in = []
      
-    for direction in directions: 
+    for direction in Dir.directions: 
         p_dir_out = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=direction,mode=GaussianImMode.Add), p0)
         im_opt_dirs_out.append(build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction, mode=GaussianImMode.Add))
         reses.append( p_dir_out )
-    
-    
-    im_opt_out = sum(im_opt_dirs_out) - (3*rect)
-    im_opt_out = np.clip(im_opt_out,0.,1.)
-    
-    
-    #f,axes = pylab.subplots(2)
-    #axes[0].imshow(im_opt_out.T)
-    #axes[1].imshow(im_rot.T)
-    #pylab.savefig('analysis/%03d_bb_fit1_out.png'%fname_idx)
 
-
-
-
-
-    
-    
-    
-    im_opt_dirs_in = []
-    for direction in directions:
         p_dir_in = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=direction,mode=GaussianImMode.Sub), p0)
         im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction,mode=GaussianImMode.Sub) )
         reses.append( ( -p_dir_out[0], -p_dir_out[1]) )
+
     
-    
-    
-    im_opt_in = sum(im_opt_dirs_in) - (3*rect)
-    im_opt_in = np.clip(im_opt_in,0.,1.)
+    im_opt_out = np.clip(sum(im_opt_dirs_out) - (3*rect),0.,1.)     
+    im_opt_in = np.clip(sum(im_opt_dirs_in) - (3*rect) ,0.,1.)
     
     f,axes = pylab.subplots(2,2)
     axes[0][0].imshow(im_rot.T)
@@ -184,15 +165,6 @@ def fit_piece(fname,fname_idx):
     axes[1][1].imshow(im_opt_out.T)
     pylab.savefig('analysis/%03d_bb_fit1.png'%fname_idx)
 
-
-    #f,axes = pylab.subplots(2)
-    #pylab.sca(axes[0])
-    #imshow(( im_opt_in + im_opt_out - rect).T)
-    #pylab.sca(axes[1])
-    #imshow(im_rot.T)
-    #pylab.savefig('analysis/%03d_bb_fit_piece.png'%fname_idx)
-
-    
 
     
     pylab.close('all')
@@ -215,7 +187,7 @@ pylab.scatter( reses[:,0],reses[:,1] )
 pylab.xlabel("GaussianDist (d0)")
 pylab.ylabel("Strength (m)")
 pylab.figure()
-pylab.plot( np.fabs(reses[:,0]) * reses[:,1] )
+pylab.plot( np.fabs(reses[:,0]) * reses[:,1], 'o' )
 #pylab.scatter(reses[:,1] )
 #pylab.scatter( reses[:,0],reses[:,2] )
 pylab.show()
