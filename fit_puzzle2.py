@@ -85,7 +85,6 @@ def get_corners_of_piece(piece):
     
     res = []
     for i,square_idxs in enumerate(squares): 
-        #print square_idxs 
         sc = eval_pts_as_rect(
                 cvx_hull_pts[square_idxs[0]], 
                 cvx_hull_pts[square_idxs[1]],
@@ -105,7 +104,6 @@ def get_corners_of_piece(piece):
     
     
     for sc,area,inds in res:
-        #inds = res[i][1]
         pylab.plot( cvx_hull_pts[inds,0], cvx_hull_pts[inds,1], 'g-' )
         pylab.plot( [ cvx_hull_pts[inds[-1],0],cvx_hull_pts[inds[0],0] ], [ cvx_hull_pts[inds[-1],1],cvx_hull_pts[inds[0],1] ], 'g-' )
         
@@ -144,86 +142,46 @@ def get_rotation_angle( pts ):
     return median_angle
 
 
-def makeGaussian(size, fwhm = 3, center=None):
-    """ Make a square gaussian kernel.
 
-    size is the length of a side of the square
-    fwhm is full-width-half-maximum, which
-    can be thought of as an effective radius.
-    """
+
  
-    x = np.arange(0, size, 1, float)
-    y = x[:,np.newaxis]
+def normpdf(x, mu, sigma, radius_max):
     
-    if center is None:
-        x0 = y0 = size // 2
-    else:
-        x0 = center[0]
-        y0 = center[1]
-    
-    return np.exp(-4*np.log(2) * ((x-x0)**2 + (y-y0)**2) / fwhm**2) 
- 
-def normpdf(x, mu, sigma):
-    radius_max = 20. 
     u = (x-mu)/abs(sigma)
-    
     y = (1/(np.sqrt(2*np.pi)*abs(sigma)))*np.exp(-u*u/2)
-    
     y[ np.abs(x-mu) > radius_max  ] = 0.
-    
     return y
 
-def gaussian2d(sz, mu, sigma):
-    x = normpdf(x=arange(sz[0]), mu=mu[0], sigma = sigma)
-    y = normpdf(x=arange(sz[1]), mu=mu[1], sigma = sigma)
+def gaussian2d(sz, mu, sigma, radius_max = 20. ):
+    x = normpdf(x=arange(sz[0]), mu=mu[0], sigma = sigma, radius_max=radius_max)
+    y = normpdf(x=arange(sz[1]), mu=mu[1], sigma = sigma, radius_max=radius_max)
     t = np.outer(x,y)
     sc = 1/np.max(t)
     #sc=1.
     return t*sc
 
-def build_simple_img2(sz, X0,X1,Y0,Y1, (d0, w0,m0,  d1, w1, m1,  d2, w2, m2,  d3, w3,m3) ):
-    #im =zeros(sz)
-    #im[X0:X1,Y0:Y1] = 1.0
-    X = (X0+X1)/2.
-    Y = (Y0+Y1)/2.
-    
-    #m = 5. * 1e3
-    t0 = gaussian2d(sz, mu=(X1+d0, Y), sigma=w0) * m0 
-    t1 = gaussian2d(sz, mu=(X0-d1, Y), sigma=w1) * m1 
-    t2 = gaussian2d(sz, mu=(X, Y1+d2), sigma=w2) * m2 
-    t3 = gaussian2d(sz, mu=(X, Y0-d3), sigma=w3) * m3 
-    ts = [t0,t1,t2,t3]
-    ts = [np.clip(t,-1,1,) for t in ts]
-    
-    tot = ts[0]+ts[1]+ts[2]+ts[3]
-    print tot.min(), tot.max()
-    assert tot.min()>=-1 and tot.max() <=1.
-    tot = np.clip(tot,-1,1)
-    
-    im = zeros(sz)
-    
-    im[X0:X1,Y0:Y1] = 1.
-    
-    im += tot
-    im = np.clip(im,0,1)
-    
-    #figure()
-    #imshow(im)
-    #show()
-    
-    return im
 
+class GaussianImMode:
+    Add = "Add"
+    Sub = "Sub"
 
-def build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0), include_square ):
+def build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0), include_square, mode ):
     im = zeros(sz)
     if include_square:
         im[x0:x1,y0:y1] = 1.
-    im += gaussian2d(sz, mu=(gX,gY), sigma=w0) * 2
-    im = np.clip(im,0,1)
+        
+    if mode ==GaussianImMode.Add: 
+        im += gaussian2d(sz, mu=(gX,gY), sigma=w0) * 2
+    elif mode ==GaussianImMode.Sub: 
+        im -= gaussian2d(sz, mu=(gX,gY), sigma=w0) * 2
+    else:
+        assert False
+        
+    
     return im
 
 
-def build_img_from_p(p, sz, x0,x1,y0,y1, direction, include_square=True):
+def build_img_from_p(p, sz, x0,x1,y0,y1, direction, include_square=True, mode=GaussianImMode.Add, do_clip=True):
     (d0, w0) = p
     X = (x0+x1)/2.
     Y = (y0+y1)/2.
@@ -238,12 +196,16 @@ def build_img_from_p(p, sz, x0,x1,y0,y1, direction, include_square=True):
         gX, gY = X, y0 - np.fabs(d0)
     else:  
         assert False
-    im = build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0),include_square=include_square )
+    im = build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0),include_square=include_square, mode=mode )
+    
+    if do_clip:
+        im = np.clip(im,0,1)
+    
     return im
 
 
-def min_func_x(p, x0,x1,y0,y1, im_norm, direction):
-    im = build_img_from_p(p=p, sz=im_norm.shape, x0=x0, x1=x1, y0=y0, y1=y1, direction=direction)
+def min_func_x(p, x0,x1,y0,y1, im_norm, direction, mode):
+    im = build_img_from_p(p=p, sz=im_norm.shape, x0=x0, x1=x1, y0=y0, y1=y1, direction=direction, mode=mode)
     diff = im_norm - im
     res = np.sum(diff**2)
     return res
@@ -324,35 +286,65 @@ def fit_piece(fname,fname_idx):
     im_norm = im_rot - np.min(im_rot)
     im_norm/= np.max(im_norm) 
         
-        
+    rect = zeros(im_norm.shape)
+    rect[x0:x1,y0:y1] = 1.
     
-    p_right_out = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Right), p0)
-    p_left_out =  fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Left), p0)
-    p_up_out =    fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Up), p0)
-    p_down_out =  fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Down), p0)
+    ## Adding:
+    dirs = [Dir.Right, Dir.Left, Dir.Up, Dir.Down]
+    im_opt_dirs_out = []
+    mode = GaussianImMode.Add
+    for i, dir in enumerate(dirs): 
+        p_dir_out = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=dir,mode=mode), p0)
+        im_opt_dirs_out.append(build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir, include_square=True,mode=mode))
+        reses.append( p_dir_out )
     
     
-    im_opt_right_out = build_img_from_p(p_right_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=Dir.Right)
-    im_opt_left_out =  build_img_from_p(p_left_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=Dir.Left, include_square=False)
-    im_opt_up_out =    build_img_from_p(p_up_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=Dir.Up, include_square=False)
-    im_opt_down_out =  build_img_from_p(p_down_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=Dir.Down, include_square=False)
+    im_opt_out = im_opt_dirs_out[0] + im_opt_dirs_out[1] + im_opt_dirs_out[2] + im_opt_dirs_out[3] - (3*rect)
+    im_opt_out = np.clip(im_opt_out,0.,1.)
     
-    
-    im_opt = im_opt_right_out + im_opt_left_out + im_opt_up_out + im_opt_down_out
-    im_opt = np.clip(im_opt,0.,1.)
     
     f,axes = pylab.subplots(2)
     pylab.sca(axes[0])
-    imshow(im_opt.T)
+    imshow(im_opt_out.T)
     pylab.sca(axes[1])
     imshow(im_rot.T)
-    pylab.title("p[1]=%f"%p_right_out[1] )
-    pylab.savefig('analysis/%03d_bb_fit1_up.png'%fname_idx)
+    #pylab.title("p[1]=%f"%p_right_out[1] )
+    pylab.savefig('analysis/%03d_bb_fit1_out.png'%fname_idx)
+
+
+
+
+
     
-    reses.append( p_right_out )
-    reses.append( p_left_out )
-    reses.append( p_up_out )
-    reses.append( p_down_out )
+    dir = Dir.Right
+    mode = GaussianImMode.Sub
+    im_opt_dirs_in = []
+    for dir in dirs:
+        #i=0
+        p_dir_in = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=dir,mode=mode), p0)
+        im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir, include_square=True,mode=mode) )
+        reses.append( ( p_dir_out[0], p_dir_out[1]) )
+    
+    im_opt_in = im_opt_dirs_in[0] + im_opt_dirs_in[1] + im_opt_dirs_in[2] + im_opt_dirs_in[3] - (3*rect)
+    im_opt_in = np.clip(im_opt_in,0.,1.)
+    
+    f,axes = pylab.subplots(2)
+    pylab.sca(axes[0])
+    imshow(im_opt_in.T)
+    pylab.sca(axes[1])
+    imshow(im_rot.T)
+    pylab.savefig('analysis/%03d_bb_fit1_in.png'%fname_idx)
+
+
+    f,axes = pylab.subplots(2)
+    pylab.sca(axes[0])
+    imshow(( im_opt_in + im_opt_out - rect).T)
+    pylab.sca(axes[1])
+    imshow(im_rot.T)
+    pylab.savefig('analysis/%03d_bb_fit_piece.png'%fname_idx)
+
+    
+
     
     pylab.close('all')
     #pylab.show() 
@@ -372,7 +364,7 @@ reses = np.array(reses)
 pylab.figure()
 pylab.scatter( reses[:,0],reses[:,1] )
 pylab.xlabel("GaussianDist (d0)")
-pylab.xlabel("Strength (m)")
+pylab.ylabel("Strength (m)")
 pylab.figure()
 #pylab.scatter(reses[:,1] )
 #pylab.scatter( reses[:,0],reses[:,2] )
