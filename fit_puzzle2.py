@@ -154,10 +154,10 @@ def fit_piece(fname,fname_idx):
     im_opt_out = np.clip(im_opt_out,0.,1.)
     
     
-    f,axes = pylab.subplots(2)
-    axes[0].imshow(im_opt_out.T)
-    axes[1].imshow(im_rot.T)
-    pylab.savefig('analysis/%03d_bb_fit1_out.png'%fname_idx)
+    #f,axes = pylab.subplots(2)
+    #axes[0].imshow(im_opt_out.T)
+    #axes[1].imshow(im_rot.T)
+    #pylab.savefig('analysis/%03d_bb_fit1_out.png'%fname_idx)
 
 
 
@@ -172,23 +172,25 @@ def fit_piece(fname,fname_idx):
         im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction,mode=GaussianImMode.Sub) )
         reses.append( ( -p_dir_out[0], -p_dir_out[1]) )
     
+    
+    
     im_opt_in = sum(im_opt_dirs_in) - (3*rect)
     im_opt_in = np.clip(im_opt_in,0.,1.)
     
-    f,axes = pylab.subplots(2)
-    pylab.sca(axes[0])
-    imshow(im_opt_in.T)
-    pylab.sca(axes[1])
-    imshow(im_rot.T)
-    pylab.savefig('analysis/%03d_bb_fit1_in.png'%fname_idx)
+    f,axes = pylab.subplots(2,2)
+    axes[0][0].imshow(im_rot.T)
+    axes[0][1].imshow(( im_opt_in + im_opt_out - rect).T)
+    axes[1][0].imshow(im_opt_in.T)
+    axes[1][1].imshow(im_opt_out.T)
+    pylab.savefig('analysis/%03d_bb_fit1.png'%fname_idx)
 
 
-    f,axes = pylab.subplots(2)
-    pylab.sca(axes[0])
-    imshow(( im_opt_in + im_opt_out - rect).T)
-    pylab.sca(axes[1])
-    imshow(im_rot.T)
-    pylab.savefig('analysis/%03d_bb_fit_piece.png'%fname_idx)
+    #f,axes = pylab.subplots(2)
+    #pylab.sca(axes[0])
+    #imshow(( im_opt_in + im_opt_out - rect).T)
+    #pylab.sca(axes[1])
+    #imshow(im_rot.T)
+    #pylab.savefig('analysis/%03d_bb_fit_piece.png'%fname_idx)
 
     
 
