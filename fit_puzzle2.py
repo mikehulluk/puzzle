@@ -20,7 +20,11 @@ from functools import partial
 piece_files = sorted( glob.glob("build/piece*single_rot.png") ) 
 
 
-
+class Dir:
+    Right = "Right"
+    Left = "Left"
+    Up = "Up"
+    Down = "Down"
     
 
 def eval_pts_as_rect(pt0,pt1,pt2,pt3):
@@ -214,21 +218,22 @@ def build_simple_img2(sz, X0,X1,Y0,Y1, (d0, w0,m0,  d1, w1, m1,  d2, w2, m2,  d3
     return im
 
 
-def build_simple_img(sz, X0,X1,Y0,Y1, p):
-    
+def build_simple_img(sz, x0,x1,y0,y1, p ):
     (d0, w0) = p
-    X = (X0+X1)/2.
-    Y = (Y0+Y1)/2.
+    X = (x0+x1)/2.
+    Y = (y0+y1)/2.
+    gX, gY = x1+np.fabs(d0), Y
  
     im = zeros(sz)
-    im[X0:X1,Y0:Y1] = 1.
-    im += gaussian2d(sz, mu=(X1+np.fabs(d0), Y), sigma=w0) * 2
+    im[x0:x1,y0:y1] = 1.
+    im += gaussian2d(sz, mu=(gX,gY), sigma=w0) * 2
     im = np.clip(im,0,1)
     
     return im
 
-def min_func_x(p, x0,x1,y0,y1, im_norm):
+def min_func_x(p, x0,x1,y0,y1, im_norm, direction):
 
+    
     im = build_simple_img(im_norm.shape, x0,x1,y0,y1, p )
     diff = im_norm - im
     res = np.sum(diff**2)
@@ -302,13 +307,13 @@ def fit_piece(fname,fname_idx):
     w = ((x1-x0)/2 + (y1-y0)/2)/2. * 0.3
     
     
-    p0 = (0,w,) #, 0,w,1., 0,w,1., 0,w,1.,)
+    p0 = (0,w,) 
 
     im_norm = im_rot - np.min(im_rot)
     im_norm/= np.max(im_norm) 
         
         
-    min_func = partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm)
+    min_func = partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Down)
     
     p = fmin(min_func, p0)
     im_opt = build_simple_img(im_rot.shape, x0,x1,y0,y1, (p) )
@@ -341,6 +346,8 @@ for i,piece_file in enumerate(piece_files):
 reses = np.array(reses)
 pylab.figure()
 pylab.scatter( reses[:,0],reses[:,1] )
+pylab.xlabel("GaussianDist (d0)")
+pylab.xlabel("Strength (m)")
 pylab.figure()
 #pylab.scatter(reses[:,1] )
 #pylab.scatter( reses[:,0],reses[:,2] )
