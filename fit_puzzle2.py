@@ -81,6 +81,7 @@ def build_img_from_p(p, sz, x0,x1,y0,y1, direction, mode=GaussianImMode.Add):
     elif direction == Dir.Down:
         gX, gY = X, y0 - np.fabs(d0)
     else:  
+        print direction
         assert False
     im = build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0), mode=mode )
     
@@ -140,16 +141,16 @@ def fit_piece(fname,fname_idx):
     rect[x0:x1,y0:y1] = 1.
     
     ## Adding:
-    dirs = [Dir.Right, Dir.Left, Dir.Up, Dir.Down]
+    directions = [Dir.Right, Dir.Left, Dir.Up, Dir.Down]
     im_opt_dirs_out = []
     mode = GaussianImMode.Add
-    for i, dir in enumerate(dirs): 
-        p_dir_out = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=dir,mode=mode), p0)
-        im_opt_dirs_out.append(build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir, mode=mode))
+    for direction in directions: 
+        p_dir_out = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=direction,mode=mode), p0)
+        im_opt_dirs_out.append(build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction, mode=mode))
         reses.append( p_dir_out )
     
     
-    im_opt_out = im_opt_dirs_out[0] + im_opt_dirs_out[1] + im_opt_dirs_out[2] + im_opt_dirs_out[3] - (3*rect)
+    im_opt_out = sum(im_opt_dirs_out) - (3*rect)
     im_opt_out = np.clip(im_opt_out,0.,1.)
     
     
@@ -166,16 +167,15 @@ def fit_piece(fname,fname_idx):
 
 
     
-    dir = Dir.Right
+    direction = Dir.Right
     mode = GaussianImMode.Sub
     im_opt_dirs_in = []
-    for dir in dirs:
-        #i=0
-        p_dir_in = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=dir,mode=mode), p0)
-        im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir,mode=mode) )
+    for direction in directions:
+        p_dir_in = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=direction,mode=mode), p0)
+        im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction,mode=mode) )
         reses.append( ( -p_dir_out[0], -p_dir_out[1]) )
     
-    im_opt_in = im_opt_dirs_in[0] + im_opt_dirs_in[1] + im_opt_dirs_in[2] + im_opt_dirs_in[3] - (3*rect)
+    im_opt_in = sum(im_opt_dirs_in) - (3*rect)
     im_opt_in = np.clip(im_opt_in,0.,1.)
     
     f,axes = pylab.subplots(2)
