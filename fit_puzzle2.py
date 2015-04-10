@@ -20,6 +20,7 @@ from functools import partial
 from constants import Dir
 import image_utils
 from caching import joblib_memory
+import pickle
 
 piece_files = sorted( glob.glob("build/piece*single_rot.png") ) 
 
@@ -174,10 +175,6 @@ def fit_piece(fname,fname_idx):
             Dir.Down:  (range(im_norm.shape[1]), y0, 0),
         }[direction]
         
-        #if direction==Dir.Right:
-        #    xs = range(0, im_norm.shape[0])
-        #    origin = x1
-        #    sum_axis = 1
             
         out_sum = np.sum( im_out_diff, sum_axis)
         in_sum = np.sum( im_in_diff, sum_axis)
@@ -199,7 +196,7 @@ def fit_piece(fname,fname_idx):
             legend()
             pylab.show()
         
-        weight = out_weighted + in_weighted
+        weight = np.sum(out_weighted) + np.sum(in_weighted)
         weights.append(weight)
             
             
@@ -229,11 +226,12 @@ if not os.path.exists("analysis"):
 for i,piece_file in enumerate(piece_files): 
     print piece_file 
     fit_piece(piece_file,i) 
-    #if(i>20):
+    #if(i>5):
     #    break
 
 reses = np.array(reses)
 weights = np.array(weights)
+
 
 pylab.figure()
 pylab.scatter( reses[:,0],reses[:,1] )
@@ -245,8 +243,10 @@ pylab.plot( np.fabs(reses[:,0]) * reses[:,1], 'o' )
 
 
 pylab.figure()
-pylab.plot( weights, 'o' )
-    
+pylab.plot(range(len(weights)), weights, 'o' )
+
+with open("weights.pckl","w") as f:
+    pickle.dump(weights, f)
 pylab.show()    
     
     
