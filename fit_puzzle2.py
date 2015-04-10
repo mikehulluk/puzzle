@@ -73,16 +73,12 @@ def eval_area_pts(pt0,pt1,pt2,pt3):
 def get_corners_of_piece(piece):
 
     imshow(piece.T) 
-    #pylab.show() 
-    
+        
     points = np.transpose( np.nonzero(piece) ) 
-    #print points.shape 
     x = ConvexHull(points) 
-    #print x 
-    #print x.simplices 
-    cvx_hull_pts =  points[x.vertices,0:2] # for simplex in x.simplices] 
+    cvx_hull_pts =  points[x.vertices,0:2]  
     plot(cvx_hull_pts[:,0], cvx_hull_pts[:,1],'rx') 
-    #print cvx_hull_pts 
+ 
     
     
     squares = combinations( range(cvx_hull_pts.shape[0]), 4 ) 
@@ -218,26 +214,41 @@ def build_simple_img2(sz, X0,X1,Y0,Y1, (d0, w0,m0,  d1, w1, m1,  d2, w2, m2,  d3
     return im
 
 
-def build_simple_img(sz, x0,x1,y0,y1, p ):
+def build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0), include_square ):
+    im = zeros(sz)
+    if include_square:
+        im[x0:x1,y0:y1] = 1.
+    im += gaussian2d(sz, mu=(gX,gY), sigma=w0) * 2
+    im = np.clip(im,0,1)
+    return im
+
+
+def build_img_from_p(p, sz, x0,x1,y0,y1, direction, include_square=True):
     (d0, w0) = p
     X = (x0+x1)/2.
     Y = (y0+y1)/2.
-    gX, gY = x1+np.fabs(d0), Y
- 
-    im = zeros(sz)
-    im[x0:x1,y0:y1] = 1.
-    im += gaussian2d(sz, mu=(gX,gY), sigma=w0) * 2
-    im = np.clip(im,0,1)
     
+    if direction == Dir.Right:
+        gX, gY = x1+np.fabs(d0), Y
+    elif direction == Dir.Left:
+        gX, gY = x0-np.fabs(d0), Y
+    elif direction == Dir.Up:
+        gX, gY = X, y1+np.fabs(d0)
+    elif direction == Dir.Down:
+        gX, gY = X, y0 - np.fabs(d0)
+    else:  
+        assert False
+    im = build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0),include_square=include_square )
     return im
 
-def min_func_x(p, x0,x1,y0,y1, im_norm, direction):
 
-    
-    im = build_simple_img(im_norm.shape, x0,x1,y0,y1, p )
+def min_func_x(p, x0,x1,y0,y1, im_norm, direction):
+    im = build_img_from_p(p=p, sz=im_norm.shape, x0=x0, x1=x1, y0=y0, y1=y1, direction=direction)
     diff = im_norm - im
     res = np.sum(diff**2)
     return res
+       
+       
        
     
 reses = []    
@@ -261,37 +272,38 @@ def fit_piece(fname,fname_idx):
     
     # Find the corners:
     pts = get_corners_of_piece(im_rot)    
-    centre = np.mean(np.array(pts), axis=0)
-    corner_size = (30,30)
-    f,axes = pylab.subplots(2,2)
-    axes = [axes[0][0], axes[0][1],axes[1][0],axes[1][1]]
     
-    #print x>centre[0], y>centre[1]
-    pts = sorted(pts, key=lambda pt: (pt[0]>centre[0],pt[1]>centre[1]))
-    for i,(x,y) in enumerate(pts):
-        pylab.sca(axes[i])
-        print x>centre[0], y>centre[1]
+    if False:
+        centre = np.mean(np.array(pts), axis=0)
+        corner_size = (30,30)
+        f,axes = pylab.subplots(2,2)
+        axes = [axes[0][0], axes[0][1],axes[1][0],axes[1][1]]
+        #print x>centre[0], y>centre[1]
+        pts = sorted(pts, key=lambda pt: (pt[0]>centre[0],pt[1]>centre[1]))
+        for i,(x,y) in enumerate(pts):
+            pylab.sca(axes[i])
+            print x>centre[0], y>centre[1]
+            
+            xmin,xmax = x-corner_size[0], x+corner_size[0]
+            ymin,ymax = y-corner_size[1], y+corner_size[1]
+            
+            xmin = np.clip(xmin, 0, im_rot.shape[0])
+            ymin = np.clip(ymin, 0, im_rot.shape[1])
+            xmax = np.clip(xmax, 0, im_rot.shape[0]-1)
+            ymax = np.clip(ymax, 0, im_rot.shape[1]-1)
+            
+            corner = im_rot[ xmin:xmax, ymin:ymax ]
+            
+            imshow(corner.T)
+            axes[i].plot([corner_size[0]],[corner_size[1]])
         
-        xmin,xmax = x-corner_size[0], x+corner_size[0]
-        ymin,ymax = y-corner_size[1], y+corner_size[1]
-        
-        xmin = np.clip(xmin, 0, im_rot.shape[0])
-        ymin = np.clip(ymin, 0, im_rot.shape[1])
-        xmax = np.clip(xmax, 0, im_rot.shape[0]-1)
-        ymax = np.clip(ymax, 0, im_rot.shape[1]-1)
-        
-        corner = im_rot[ xmin:xmax, ymin:ymax ]
-        
-        imshow(corner.T)
-        axes[i].plot([corner_size[0]],[corner_size[1]])
-    
-    pylab.savefig('analysis/%03d_bb_corners.png'%fname_idx)
+        pylab.savefig('analysis/%03d_bb_corners.png'%fname_idx)
     #pylab.show()
     
     
-    figure()
-    imshow(im_rot,)
-    pylab.savefig('analysis/%03d_bb_rot.png'%fname_idx)
+    #figure()
+    #imshow(im_rot,)
+    #pylab.savefig('analysis/%03d_bb_rot.png'%fname_idx)
     
     im_rot =im_rot.astype('float')
     
@@ -313,21 +325,34 @@ def fit_piece(fname,fname_idx):
     im_norm/= np.max(im_norm) 
         
         
-    min_func = partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Down)
     
-    p = fmin(min_func, p0)
-    im_opt = build_simple_img(im_rot.shape, x0,x1,y0,y1, (p) )
+    p_right_out = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Right), p0)
+    p_left_out =  fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Left), p0)
+    p_up_out =    fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Up), p0)
+    p_down_out =  fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=Dir.Down), p0)
     
+    
+    im_opt_right_out = build_img_from_p(p_right_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=Dir.Right)
+    im_opt_left_out =  build_img_from_p(p_left_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=Dir.Left, include_square=False)
+    im_opt_up_out =    build_img_from_p(p_up_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=Dir.Up, include_square=False)
+    im_opt_down_out =  build_img_from_p(p_down_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=Dir.Down, include_square=False)
+    
+    
+    im_opt = im_opt_right_out + im_opt_left_out + im_opt_up_out + im_opt_down_out
+    im_opt = np.clip(im_opt,0.,1.)
     
     f,axes = pylab.subplots(2)
     pylab.sca(axes[0])
-    imshow(im_opt)
+    imshow(im_opt.T)
     pylab.sca(axes[1])
-    imshow(im_rot)
-    pylab.title("p[1]=%f"%p[1] )
-    pylab.savefig('analysis/%03d_bb_fit1.png'%fname_idx)
-    #pylab.show()
-    reses.append( p )
+    imshow(im_rot.T)
+    pylab.title("p[1]=%f"%p_right_out[1] )
+    pylab.savefig('analysis/%03d_bb_fit1_up.png'%fname_idx)
+    
+    reses.append( p_right_out )
+    reses.append( p_left_out )
+    reses.append( p_up_out )
+    reses.append( p_down_out )
     
     pylab.close('all')
     #pylab.show() 
