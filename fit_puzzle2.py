@@ -199,6 +199,7 @@ def build_img_from_p(p, sz, x0,x1,y0,y1, direction, include_square=True, mode=Ga
     im = build_simple_img(sz, x0,x1,y0,y1, (gX, gY, w0),include_square=include_square, mode=mode )
     
     if do_clip:
+        #im = np.clip(im,0,1)
         im = np.clip(im,0,1)
     
     return im
@@ -323,7 +324,7 @@ def fit_piece(fname,fname_idx):
         #i=0
         p_dir_in = fmin(partial(min_func_x, x0=x0,x1=x1,y0=y0,y1=y1, im_norm=im_norm, direction=dir,mode=mode), p0)
         im_opt_dirs_in.append( build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=dir, include_square=True,mode=mode) )
-        reses.append( ( p_dir_out[0], p_dir_out[1]) )
+        reses.append( ( -p_dir_out[0], -p_dir_out[1]) )
     
     im_opt_in = im_opt_dirs_in[0] + im_opt_dirs_in[1] + im_opt_dirs_in[2] + im_opt_dirs_in[3] - (3*rect)
     im_opt_in = np.clip(im_opt_in,0.,1.)
