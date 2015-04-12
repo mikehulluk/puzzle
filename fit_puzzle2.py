@@ -106,7 +106,10 @@ reses = []
 weights = []
 
 
-
+class EdgeType:
+    Innie = "Innie"
+    Outtie = "Outtie"
+    Flattie = "Flattie"
 
 @joblib_memory.cache
 def fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode):
@@ -153,7 +156,8 @@ def fit_piece(fname,fname_idx):
     
     im_opt_dirs_out = []
     im_opt_dirs_in = []
-     
+    
+    edge_types = []
     for direction in Dir.directions: 
         p_dir_out = fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode=GaussianImMode.Add)
         im_out = build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction, mode=GaussianImMode.Add)
@@ -199,8 +203,12 @@ def fit_piece(fname,fname_idx):
         weight = np.sum(out_weighted) + np.sum(in_weighted)
         weights.append(weight)
             
-            
-
+        if(weight < -5000):
+            edge_types.append( EdgeType.Innie)
+        elif(weight > 5000):
+            edge_types.append( EdgeType.Outtie )
+        else:
+            edge_types.append( EdgeType.Flattie )
 
     
     im_opt_out = np.clip(sum(im_opt_dirs_out) - (3*rect),0.,1.)     
