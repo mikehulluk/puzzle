@@ -17,7 +17,7 @@ import os
 import math
 from scipy.optimize.optimize import fmin
 from functools import partial
-from constants import Dir
+from constants import Dir, EdgeType
 import image_utils
 from caching import joblib_memory
 import pickle
@@ -195,10 +195,6 @@ reses = []
 weights = []
 
 
-class EdgeType:
-    Innie = "Innie"
-    Outtie = "Outtie"
-    Flattie = "Flattie"
 
 @joblib_memory.cache
 def fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode):
