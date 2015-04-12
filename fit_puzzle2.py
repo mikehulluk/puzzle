@@ -21,6 +21,7 @@ from constants import Dir
 import image_utils
 from caching import joblib_memory
 import pickle
+from fitbspline import test_fits
 
 piece_files = sorted( glob.glob("build/piece*single_rot.png") ) 
 
@@ -99,52 +100,9 @@ def min_func_x(p, x0,x1,y0,y1, im_norm, direction, mode):
     res = np.sum(diff**2)
     return res
        
-       
-       
-    
-reses = []    
-weights = []
 
 
-class EdgeType:
-    Innie = "Innie"
-    Outtie = "Outtie"
-    Flattie = "Flattie"
-
-@joblib_memory.cache
-def fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode):
-    p_dir_out = fmin(partial(min_func_x, x0=x0, x1=x1, y0=y0, y1=y1, im_norm=im_norm, direction=direction, mode=mode), p0)
-    return p_dir_out
-
-
-def fit_piece(fname,fname_idx): 
-    print fname 
-    im_piece = imread(fname) 
-    im_piece = (im_piece[:,:,0]*255.).astype('int') 
-    
-    
-    # Derotate the piece:
-    im_rot = image_utils.align_to_axes(im_piece)
-    
-
-    # Find the corners:
-    pts = image_utils.get_corners_of_piece(im_rot)    
-    
-    
-    
-    
-    
-
-    pts= np.array(pts)
-    x0,x1 = np.min(pts[:,0]), np.max(pts[:,0])
-    y0,y1 = np.min(pts[:,1]), np.max(pts[:,1])
-
-    
-    
-    im_rot =im_rot.astype('float')
-    im_norm = im_rot - np.min(im_rot)
-    im_norm/= np.max(im_norm) 
-        
+def get_edge_types( im_norm,(x0,x1,y0,y1), img_idx ):  
     rect = zeros(im_norm.shape)
     rect[x0:x1,y0:y1] = 1.
 
@@ -160,12 +118,12 @@ def fit_piece(fname,fname_idx):
     edge_types = []
     for direction in Dir.directions: 
         p_dir_out = fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode=GaussianImMode.Add)
-        im_out = build_img_from_p(p_dir_out, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction, mode=GaussianImMode.Add)
+        im_out = build_img_from_p(p_dir_out, sz=im_norm.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction, mode=GaussianImMode.Add)
         im_opt_dirs_out.append(im_out)
         reses.append( p_dir_out )
 
         p_dir_in = fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode=GaussianImMode.Sub) 
-        im_in = build_img_from_p(p_dir_in, sz=im_rot.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction,mode=GaussianImMode.Sub)
+        im_in = build_img_from_p(p_dir_in, sz=im_norm.shape, x0=x0,x1=x1,y0=y0,y1=y1, direction=direction,mode=GaussianImMode.Sub)
         im_opt_dirs_in.append(im_in)
         reses.append( ( -p_dir_in[0], -p_dir_in[1]) )
 
@@ -215,18 +173,77 @@ def fit_piece(fname,fname_idx):
     im_opt_in = np.clip(sum(im_opt_dirs_in) - (3*rect) ,0.,1.)
     
     f,axes = pylab.subplots(2,2)
-    axes[0][0].imshow(im_rot.T)
+    axes[0][0].imshow(im_norm.T)
     axes[0][1].imshow(( im_opt_in + im_opt_out - rect).T)
     axes[1][0].imshow(im_opt_in.T)
     axes[1][1].imshow(im_opt_out.T)
-    pylab.savefig('analysis/%03d_bb_fit1.png'%fname_idx)
+    pylab.savefig('analysis/%03d_bb_fit1.png'%img_idx)
 
+    return edge_types
+
+
+
+
+
+
+
+
+     
+       
+    
+reses = []    
+weights = []
+
+
+class EdgeType:
+    Innie = "Innie"
+    Outtie = "Outtie"
+    Flattie = "Flattie"
+
+@joblib_memory.cache
+def fit_knobdule(x0, x1, y0, y1, p0, im_norm, direction, mode):
+    p_dir_out = fmin(partial(min_func_x, x0=x0, x1=x1, y0=y0, y1=y1, im_norm=im_norm, direction=direction, mode=mode), p0)
+    return p_dir_out
+
+
+def fit_piece(fname,fname_idx): 
+    print fname 
+    im_piece = imread(fname) 
+    im_piece = (im_piece[:,:,0]*255.).astype('int') 
+    
+    
+    # Derotate the piece:
+    im_rot = image_utils.align_to_axes(im_piece)
+    
+
+    # Find the corners:
+    pts = np.array(image_utils.get_corners_of_piece(im_rot) )    
+    x0,x1 = np.min(pts[:,0]), np.max(pts[:,0])
+    y0,y1 = np.min(pts[:,1]), np.max(pts[:,1])
 
     
+    
+    im_rot =im_rot.astype('float')
+    im_norm = im_rot - np.min(im_rot)
+    im_norm/= np.max(im_norm) 
+      
+
+    # Find if each edge is an 'innie', and 'outtie', or a 'flattie':
+    edge_types = get_edge_types( im_norm,(x0,x1,y0,y1), img_idx=fname_idx )
+    
+    
+    test_fits(im_norm, (x0,x1,y0,y1), edge_types)
+    
+    pylab.show()
     pylab.close('all')
+    
+    
+    
+    print edge_types  
     #pylab.show() 
     
     
+
     
 if not os.path.exists("analysis"):
     os.makedirs("analysis")
@@ -267,112 +284,3 @@ pylab.show()
     
     
     
-    
-
-def test_fits():
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import scipy.interpolate as si
-    
-    points = [[0, 0], [0, 2], [2, 3], [4, 0], [6, 3], [8, 2], [8, 0]];
-    points = np.array(points)
-    x = points[:,0]
-    y = points[:,1]
-    
-    t = range(len(points))
-    ipl_t = np.linspace(0.0, len(points) - 1, 100)
-    
-    x_tup = si.splrep(t, x, k=3)
-    y_tup = si.splrep(t, y, k=3)
-    
-    x_list = list(x_tup)
-    xl = x.tolist()
-    x_list[1] = xl + [0.0, 0.0, 0.0, 0.0]
-    
-    y_list = list(y_tup)
-    yl = y.tolist()
-    y_list[1] = yl + [0.0, 0.0, 0.0, 0.0]
-    
-    x_i = si.splev(ipl_t, x_list)
-    y_i = si.splev(ipl_t, y_list)
-    
-    #==============================================================================
-    # Plot
-    #==============================================================================
-    
-    fig = plt.figure()
-    
-    ax = fig.add_subplot(231)
-    plt.plot(t, x, '-og')
-    plt.plot(ipl_t, x_i, 'r')
-    plt.xlim([0.0, max(t)])
-    plt.title('Splined x(t)')
-    
-    ax = fig.add_subplot(232)
-    plt.plot(t, y, '-og')
-    plt.plot(ipl_t, y_i, 'r')
-    plt.xlim([0.0, max(t)])
-    plt.title('Splined y(t)')
-    
-    ax = fig.add_subplot(233)
-    plt.plot(x, y, '-og')
-    plt.plot(x_i, y_i, 'r')
-    plt.xlim([min(x) - 0.3, max(x) + 0.3])
-    plt.ylim([min(y) - 0.3, max(y) + 0.3])
-    plt.title('Splined f(x(t), y(t))')
-    
-    ax = fig.add_subplot(234)
-    for i in range(7):
-        vec = np.zeros(11)
-        vec[i] = 1.0
-        x_list = list(x_tup)
-        x_list[1] = vec.tolist()
-        x_i = si.splev(ipl_t, x_list)
-        plt.plot(ipl_t, x_i)
-    plt.xlim([0.0, max(t)])
-    plt.title('Basis splines')
-    plt.show()
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    #im_size=(30.,30.)
-    #im_centre = (15.,15.)
-    #ma2 = 0.
-    #ma1 = 0.0
-    #ma0 = im_centre[0]
-    #
-    #mb2 = 0.
-    #mb1 = 0.
-    #mb0 = im_centre[1]
-    
-    #x = np.arange(0, im_size[0])
-    #y = np.arange(0, im_size[1])
-    
-    #x = x - im_centre[0]
-    #y = y - im_centre[1]
-    
-   
-    
-    #x_valid_mat = np.tile(( y > ((x)**2 * ma2 + x*ma1 + ma0) ), (im_size[1],1 ) )
-    #y_valid_mat = np.tile(( x > ((y)**2 * mb2 + y*mb1 + mb0) ), (im_size[0],1 ) ).T
-    #print x_valid_mat.shape
-    #print x_valid_mat
-
-
-    #im = x_valid_mat & y_valid_mat
-    #imshow(im.T ) 
-    #pylab.show()
-    
-    #, cmap, norm, aspect, interpolation, alpha, vmin, vmax, origin, extent, shape, filternorm, filterrad, imlim, resample, url, hold)
-    #
-    
-    
-
-#test_fits()
-#exit(0)    
