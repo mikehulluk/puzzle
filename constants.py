@@ -3,7 +3,8 @@ class Dir:
     Left = "Left"
     Up = "Up"
     Down = "Down"
-    directions = [Right, Left, Up, Down]
+    #directions = [Right, Left, Up, Down]
+    directions = [Right, Up, Left, Down]
     
 class EdgeType:
     Innie = "Innie"

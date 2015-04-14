@@ -175,11 +175,11 @@ class PieceSplineTemplate(object):
         dir_right_start = ctrl_pts[0][0]
         dir_right_end =   ctrl_pts[0][-1]
         
-        dir_up_start = ctrl_pts[2][0]
-        dir_up_end =   ctrl_pts[2][-1]
+        dir_up_start = ctrl_pts[1][0]
+        dir_up_end =   ctrl_pts[1][-1]
 
-        dir_left_start = ctrl_pts[1][0]
-        dir_left_end = ctrl_pts[1][-1]   
+        dir_left_start = ctrl_pts[2][0]
+        dir_left_end = ctrl_pts[2][-1]   
 
 
         dir_down_start = ctrl_pts[3][0]
@@ -207,15 +207,7 @@ class PieceSplineTemplate(object):
             assert np.linalg.norm(tp2) < 1. 
             assert np.linalg.norm(tp3) < 1.  
             
-        #print 'c0', len(ctrl_pts[0]),  ctrl_pts[0]
-        #print 'c1', len(ctrl_pts[1]),  ctrl_pts[1]
-        #print 'c2', len(ctrl_pts[2]),  ctrl_pts[2]
-        #print 'c3', len(ctrl_pts[3]),  ctrl_pts[3]
-        
-        #print 'c0', len(ctrl_pts[0][1:-1]),  ctrl_pts[0][1:-1]
-        #print 'c1', len(ctrl_pts[1][1:-1]),  ctrl_pts[1][1:-1]
-        #print 'c2', len(ctrl_pts[2][1:-1]),  ctrl_pts[2][1:-1]
-        #print 'c3', len(ctrl_pts[3][1:-1]),  ctrl_pts[3][1:-1]
+
         
         p = [p0,p1,p2,p3, ] + \
                 ctrl_pts[0][1:-1] + \
@@ -243,14 +235,16 @@ class PieceSplineTemplate(object):
         
         dir_offset = 4
         right_offset = dir_offset  + 0
-        left_offset = right_offset + self.pts_per_direction[0] -2
-        up_offset = left_offset + self.pts_per_direction[1] -2
-        down_offset = up_offset + self.pts_per_direction[2] -2
+        up_offset = right_offset + self.pts_per_direction[0] -2
+        
+        left_offset = up_offset + self.pts_per_direction[1] -2
+        
+        down_offset = left_offset + self.pts_per_direction[2] -2
         
         vecs = [
                 [p3] + pts[right_offset:right_offset+self.pts_per_direction[0] -2] + [p0], #Right
-                [p1] + pts[left_offset:left_offset+self.pts_per_direction[1] -2] + [p2], #Left
-                [p0] + pts[up_offset:up_offset+self.pts_per_direction[2] -2] + [p1], #Up
+                [p0] + pts[up_offset:up_offset+self.pts_per_direction[1] -2] + [p1], #Up
+                [p1] + pts[left_offset:left_offset+self.pts_per_direction[2] -2] + [p2], #Left
                 [p2] + pts[down_offset:down_offset+self.pts_per_direction[3] -2] + [p3], #Down
                 ]
         return vecs
