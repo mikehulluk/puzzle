@@ -1,4 +1,4 @@
-from matplotlib.pyplot import imshow, show, plot
+from matplotlib.pyplot import imshow, show, plot, title
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as si
@@ -6,7 +6,7 @@ from constants import Dir
 from constants import EdgeType
 from matplotlib.pylab import figure
 import itertools
-from numpy import zeros_like, hstack, zeros
+from numpy import zeros_like, hstack, zeros, CLIP, clip
 import pylab
 from scipy.ndimage.measurements import label
 from scipy.signal.signaltools import convolve2d
@@ -14,6 +14,7 @@ from scipy.signal.signaltools import convolve2d
 from scipy.optimize import minimize
 from skimage.morphology._skeletonize import medial_axis
 from numpy.linalg.linalg import norm
+from itertools import chain
 
 def evaluate_bspline(points):
     points = np.array(points)
@@ -148,6 +149,9 @@ class PieceSplineTemplate(object):
 
         npts = {EdgeType.Flattie:4, EdgeType.Innie:8, EdgeType.Outtie:8}
         self.pts_per_direction = [ npts[edge_type] for edge_type in edge_types ]
+        
+        
+        self.call_cnt = 0
     
     def get_intial_ctrl_pts(self):
         w0 = 10
@@ -224,13 +228,8 @@ class PieceSplineTemplate(object):
         return p
 
     def optvector_to_ctrl_points(self, p):
-        #directions = [Right, Left, Up, Down]
-        #print "Undoing"
-        #print p
         pts_x, pts_y = p[::2], p[1::2]
         pts = zip(pts_x,pts_y)
-        #print  len(pts), pts
-        #assert len(pts) ==  sum(self.pts_per_direction) - 4
         p0,p1,p2,p3 = pts[:4]
         
         dir_offset = 4
@@ -265,7 +264,7 @@ class PieceSplineTemplate(object):
         for i in range(4):
             for x,y in zip( *curves[i] ):
                 pts.append( (x,y) )
-        print pts
+        #print pts
         
         
         
@@ -281,19 +280,23 @@ class PieceSplineTemplate(object):
                     dir0 =  _pt1 - _pt0
                     dir0 /= norm(dir0)
                     dir_perp = np.array( [-dir0[1], dir0[0]] )
-                    
                     in_pt = _pt0 + dir_perp
                     pts_internal.append( (in_pt[0],in_pt[1]) )
         
-        print pts_internal
         
-        figure();
-        ptsX,ptsY = zip(*pts)
-        ptsINX,ptsINY = zip(*pts_internal)
-        figure();
-        plot(ptsX,ptsY, 'g')
-        plot(ptsINX,ptsINY, 'orange')
-        show()
+        pts_internal =[ (int(x), int(y)) for x,y in pts_internal ]
+        
+        #print pts_internal
+        
+        #figure();
+        #ptsX,ptsY = zip(*pts)
+        #ptsINX,ptsINY = zip(*pts_internal)
+        #figure();
+        #plot(ptsX,ptsY, 'g')
+        #plot(ptsINX,ptsINY, 'orange')
+        
+        
+        #show()
         
         
         # Find the distance of each pixel to the puzzle piece:
@@ -308,127 +311,67 @@ class PieceSplineTemplate(object):
         im_dist = 1./(1+im_dist)
         
         
+        # Make a thick outline:
         im_outline = zeros(im_dist.shape)
+        im_outline_inside = zeros(im_dist.shape)
         for (x,y) in pts:
             im_outline[ int(x), int(y)] = 1.
+        for (x,y) in pts_internal:
+            im_outline_inside[ int(x), int(y)] = 1.
         
-        figure(); imshow(im_outline.T); pylab.colorbar();
+        im_outline_thick = clip(im_outline + im_outline_inside, 0,1)
         
-        labelled_im, num_comps = label(im_outline, ) #structure = np.array([[0.5,1,0.5],[0.5,1,0.5],[0.5,1,0.5]]) )
-        figure(); imshow(labelled_im.T); pylab.colorbar();
+        #figure(); title("IM_OUTLINE");imshow(im_outline_thick.T); pylab.colorbar();
         
-        show()
+        
+        labelled_im, num_comps = label(1-im_outline_thick, ) 
+        #figure(); imshow(labelled_im.T); pylab.colorbar();
+        
+        internal_label = np.where(labelled_im==2, 1,0)
+        #figure(); title("internal_label"); imshow(internal_label.T); pylab.colorbar();
+        
+        int2 = clip(im_outline_thick - im_outline, 0,1)
+        int2 = np.where(int2>0.5, 1,0 )
+        #figure(); title("int2"); imshow(int2.T); pylab.colorbar();
+        
+        
+        
+        im_new = zeros(im_dist.shape)
+        im_new[np.where(internal_label)] = 1
+        im_new[np.where(int2)] = 2
+        
+        #figure(); title("IM_internal"); imshow(im_new.T); pylab.colorbar();
+        
+        
+        
+        im_final = np.clip( im_new + im_dist, 0., 1.)
+        #figure(); title("im_final"); imshow(im_final.T); pylab.colorbar();
+        
             
         
-        res = skimage.measure.find_contours(im_dist, level, fully_connected='low', positive_orientation='low')
+        im_diff = (im_final - self.im_norm) **2
         
-        skel = medial_axis(np.where( (1-im_dist)>0.85, 0, 1), )
-        figure(); imshow(skel.T); pylab.colorbar();
-        labelled_im, num_comps = label(skel, structure = np.array([[1,1,1],[1,1,1],[1,1,1]]) )
-        figure(); imshow(labelled_im.T); pylab.colorbar();        
-        
-        #figure(); hist( im_dist.
-        #pylab.hist(im_dist.flatten(), 256, )
-        
-        
-        
-        
-        # Find the inside of the piece:
-        #im_dist_quant = np.where(im_dist>0.25, 0, 1)
-        
-
-        
-        
-        
-        figure(); imshow(im_dist.T); pylab.colorbar();
-        #figure(); imshow(im_dist_quant.T); pylab.colorbar(); 
-         
-        
-        
-        #
-        
-        tot = im_dist * self.im_norm
-        figure(); imshow(1 - tot.T); pylab.colorbar()
-        
-        pylab.show()
-        
-        
-        print im_dist.shape
-        
-        
-        
-        
-        
-        
-        
-        
-        assert(0)
-        #curves = curves[0] + curves[1] + curves[2] + curves[3]  
-        #print curves
-        #assert(0)
-        
-        
-        
-        
-        curves = PieceSplineTemplate.control_points_to_curves(ctrl_pts)
-        for i in range(4):
-            for x,y in zip( *curves[i] ):
-                im[int(x), int(y)] = 1.0
-                
-        #imshow(im)
-        
-        
-        
-        #conv_mask = np.array( [[0.25,0.5,0.25],[0.5,1,0.5],[0.25,0.5,0.25]] )
-        #conv_mask = np.array( [[0.0,0.5,0.0],[0.5,1.,0.5],[0.0,0.5,0.0]] )
-        conv_mask = np.array( [[0.25,0.5,0.25],[0.5,1.,0.5],[0.25,0.5,0.25]] )
-        #conv_mask /=9.
-        #conv_mask /=9.
-        im_bound_orig = convolve2d(im,conv_mask, boundary='fill', mode='same')
-        
-        im_bound = np.where(im_bound_orig > 0.5, 1, 0)
-        pylab.figure(); imshow(im); pylab.colorbar(); #show()
-        pylab.figure(); imshow(im); pylab.colorbar(); #show()
-        
-        
-        #im_bound = np.clip(im_bound, 0.,1.)
-        
-        
-        #im = 1.-im
-        #im = 1.0-im
-        im_bound = 1-im_bound
-        labeled_array, num_features = label(im_bound)
-        
-        figure()
-        imshow(labeled_array)
-        #pylab.show()
-        # Extract the feature:
-        #im = np.ones(self.im_norm.shape)
-        not_our_feature_idx = labeled_array[ 0,0 ]
-        #print "Feature:",our_feature_idx
-        im[ labeled_array == not_our_feature_idx] = 0.
-        
-        pylab.figure(); imshow(im); pylab.colorbar(); show()
-        
-        #figure()
-        #imshow(im)
-        print "r1", self.im_norm.min(), self.im_norm.max()
-        print "r2", im.min(), im.max()
-        
-        #pylab.close('all')
-        #pylab.figure(); imshow(im); pylab.colorbar()
-        #pylab.figure(); imshow(self.im_norm); pylab.colorbar()
-        #pylab.show()
-        
-        diff = (im - self.im_norm) **2
-        
+        #figure(); title("diff"); imshow(diff.T); pylab.colorbar();
+        #show()
         #imshow(diff)
         #pylab.show()
+        print " >> ", im_diff[100:100]
+        diff = np.sum(im_diff)
         
-        diff = np.sum(diff)
+        print self.call_cnt, diff
         
-        print diff
+        
+        
+        if self.call_cnt % 10 == 0:
+            figure(); title("diff"); imshow(im_diff.T, vmin=0,vmax=1.); cbar = pylab.colorbar(ticks=[0.,1.]) # ; cbar.vmin=0.0, vmax=1.0
+            pylab.savefig("analysis/fitting_%04d.png"%self.call_cnt)
+            pylab.close("all")
+            #show()
+        self.call_cnt += 1
+        
         return diff
+        
+        
         
             
         
@@ -460,14 +403,25 @@ def test_fits(im_norm, (X0,X1,Y0,Y1), edge_types):
     tmpl.image_distance( p0 )
     
      
-    #Powell#
-    p = minimize(tmpl.image_distance, p0, method='Nelder-Mead') #, maxiter=1000,maxfun=1000)
     
+    #p = minimize(tmpl.image_distance, p0, method='Nelder-Mead') #, maxiter=1000,maxfun=1000)
+    
+    p =  np.array([ 107.16361691,  115.12643946,   51.98507228,  114.63592808,
+         51.77483912,   39.95369715,  108.007557  ,   40.08943   ,
+        108.44392364,   54.44782343,   99.78542787,   71.16922936,
+        127.09163972,   69.52290702,  122.6773119 ,   88.97755043,
+        108.06189382,   80.79077168,  107.13091062,   97.45627773,
+         98.49957312,  111.20334618,   80.27707309,  113.27985432,
+         86.76490985,  136.13309015,   70.23518408,  138.15139454,
+         78.87377298,  114.78391742,   62.17470862,  110.72425835,
+         52.32592034,   93.77664198,   52.30943143,   65.18547157,
+         53.43415438,   40.71936311,   92.72767322,   40.00852822])
+           
     print p
     
     p_dash = tmpl.optvector_to_ctrl_points(p)
     tmpl.plot_ctrl_points(ctrl_pts=p_dash)
-    tmpl.plot_ctrl_points(ctrl_pts=p0_dash, plot_image=False)
+    #tmpl.plot_ctrl_points(ctrl_pts=p0_dash, plot_image=False)
     
     print
     for (t,tt) in zip(p,p0 ):
