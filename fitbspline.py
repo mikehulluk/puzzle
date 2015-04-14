@@ -47,10 +47,10 @@ def get_initial_ctrl_points((X0,X1,Y0,Y1), direction, edge_type, w):
     
     print direction
     startpt, endpt = {
-        Dir.Up:    ([X0,Y1],[X1,Y1]),
+        Dir.Up:    ([X1,Y1],[X0,Y1]),
         Dir.Down:  ([X0,Y0],[X1,Y0]),
         Dir.Right: ([X1,Y0],[X1,Y1]),
-        Dir.Left:  ([X0,Y0],[X0,Y1]),
+        Dir.Left:  ([X0,Y1],[X0,Y0]),
         }[direction]
         
     if edge_type == EdgeType.Flattie:
@@ -65,12 +65,12 @@ def get_initial_ctrl_points((X0,X1,Y0,Y1), direction, edge_type, w):
     if direction == Dir.Up:
         points = [
                   startpt,
-                  [X-w*2, Y1],
-                  [X-w/2, Y1],
-                  [X-w, Y1+w*2*w_out_mul],
-                  [X+w, Y1+w*2*w_out_mul],
-                  [X+w/2, Y1],
                   [X+w*2, Y1],
+                  [X+w/2, Y1],
+                  [X+w, Y1+w*2*w_out_mul],
+                  [X-w, Y1+w*2*w_out_mul],
+                  [X-w/2, Y1],
+                  [X-w*2, Y1],
                   endpt,
                   ]
     if direction == Dir.Down:
@@ -98,12 +98,12 @@ def get_initial_ctrl_points((X0,X1,Y0,Y1), direction, edge_type, w):
     if direction == Dir.Left:
         points = [
                   startpt,
-                  [X0, Y-w*2],
-                  [X0, Y-w/2],
-                  [X0-w*2*w_out_mul, Y-w],
-                  [X0-w*2*w_out_mul, Y+w],
-                  [X0, Y+w/2],
                   [X0, Y+w*2],
+                  [X0, Y+w/2],
+                  [X0-w*2*w_out_mul, Y+w],
+                  [X0-w*2*w_out_mul, Y-w],
+                  [X0, Y-w/2],
+                  [X0, Y-w*2],
                   endpt,
                   ]
     
@@ -160,7 +160,6 @@ class PieceSplineTemplate(object):
 
     def plot_ctrl_points(self, ctrl_pts, plot_image=True):
         curves = PieceSplineTemplate.control_points_to_curves(ctrl_pts)
-        #fig = plt.figure()
         
         if plot_image:
             imshow(self.im_norm.T)
@@ -172,49 +171,36 @@ class PieceSplineTemplate(object):
 
 
     def ctrl_points_to_optvector(self, ctrl_pts):
-        #directions = [Right, Left, Up, Down]
         
         dir_right_start = ctrl_pts[0][0]
         dir_right_end =   ctrl_pts[0][-1]
         
+        dir_up_start = ctrl_pts[2][0]
+        dir_up_end =   ctrl_pts[2][-1]
+
+        dir_left_start = ctrl_pts[1][0]
+        dir_left_end = ctrl_pts[1][-1]   
+
+
         dir_down_start = ctrl_pts[3][0]
         dir_down_end =   ctrl_pts[3][-1]
         
-        dir_left_start = ctrl_pts[1][0]
-        dir_left_end =   ctrl_pts[1][-1]
         
-        dir_up_start = ctrl_pts[2][0]
-        dir_up_end =   ctrl_pts[2][-1]
-        
-        
-        #print "dir_right_start", dir_right_start
-        #print "dir_right_end", dir_right_end  
-        
-        #print "dir_down_start", dir_down_start  
-        #print "dir_down_end",dir_down_end   
-        #
-        #print "dir_left_start",dir_left_start  
-        #print "dir_left_end",dir_left_end  
-        
-        #print "dir_up_start",dir_up_start  
-        #print "dir_up_end",dir_up_end
-        #print
-        
-        p0 = dir_up_end
-        p1 = dir_down_end
-        p2 = dir_down_start
-        p3 = dir_up_start 
+        p0 = dir_right_end
+        p1 = dir_up_end
+        p2 = dir_left_end
+        p3 = dir_down_end 
         
         
-        do_check = False
+        do_check = True
         if do_check:
 
             
             # Double check values:
-            tp0 = np.array(p0) - np.array(dir_right_end)
-            tp1 = np.array(p1) - np.array(dir_right_start)
-            tp2 = np.array(p2) - np.array(dir_left_start)
-            tp3 = np.array(p3) - np.array(dir_left_end)
+            tp0 = np.array(p0) - np.array(dir_up_start)
+            tp1 = np.array(p1) - np.array(dir_left_start)
+            tp2 = np.array(p2) - np.array(dir_down_start)
+            tp3 = np.array(p3) - np.array(dir_right_start)
             
             assert np.linalg.norm(tp0) < 1.
             assert np.linalg.norm(tp1) < 1. 
@@ -262,10 +248,10 @@ class PieceSplineTemplate(object):
         down_offset = up_offset + self.pts_per_direction[2] -2
         
         vecs = [
-                [p1] + pts[right_offset:right_offset+self.pts_per_direction[0] -2] + [p0], #Right
-                [p2] + pts[left_offset:left_offset+self.pts_per_direction[1] -2] + [p3], #Left
-                [p3] + pts[up_offset:up_offset+self.pts_per_direction[2] -2] + [p0], #Up
-                [p2] + pts[down_offset:down_offset+self.pts_per_direction[3] -2] + [p1], #Down
+                [p3] + pts[right_offset:right_offset+self.pts_per_direction[0] -2] + [p0], #Right
+                [p1] + pts[left_offset:left_offset+self.pts_per_direction[1] -2] + [p2], #Left
+                [p0] + pts[up_offset:up_offset+self.pts_per_direction[2] -2] + [p1], #Up
+                [p2] + pts[down_offset:down_offset+self.pts_per_direction[3] -2] + [p3], #Down
                 ]
         return vecs
     
