@@ -15,14 +15,15 @@ from scipy.optimize import minimize
 from skimage.morphology._skeletonize import medial_axis
 from numpy.linalg.linalg import norm
 from itertools import chain
+from scipy.misc.pilutil import imresize
 
-def evaluate_bspline(points):
+def evaluate_bspline(points, npoints):
     points = np.array(points)
     x = points[:,0]
     y = points[:,1]
 
     t = range(len(points))
-    ipl_t = np.linspace(0.0, len(points) - 1, 300)
+    ipl_t = np.linspace(0.0, len(points) - 1, npoints)
 
     x_tup = si.splrep(t, x, k=3)
     y_tup = si.splrep(t, y, k=3)
@@ -158,8 +159,8 @@ class PieceSplineTemplate(object):
         return [get_initial_ctrl_points((self.X0,self.X1,self.Y0,self.Y1), direction=direction, edge_type=edge_type, w=w0) for (direction, edge_type) in zip( Dir.directions, self.edge_types) ]
         
     @classmethod
-    def control_points_to_curves(self, ctrl_pts_s ):
-        return [ evaluate_bspline(points) for points in ctrl_pts_s]
+    def control_points_to_curves(self, ctrl_pts_s, npoints=300):
+        return [ evaluate_bspline(points, npoints=npoints) for points in ctrl_pts_s]
 
 
     def plot_ctrl_points(self, ctrl_pts, plot_image=True):
@@ -253,6 +254,111 @@ class PieceSplineTemplate(object):
         X = (self.X1 - self.X0) /2
         Y = (self.Y1 - self.Y0) /2
         ctrl_pts = self.optvector_to_ctrl_points(p)
+        
+        upsample =5
+        
+        sz = self.im_norm.shape
+        sz_upsample = (sz[0]*upsample, sz[1]*upsample)
+        im_new = zeros(sz_upsample)
+        
+        
+        pts = []
+        curves = PieceSplineTemplate.control_points_to_curves(ctrl_pts, npoints=300 * upsample)
+        curves = PieceSplineTemplate.control_points_to_curves(ctrl_pts, npoints=300 * upsample * 3)
+        for i in range(4):
+            for x,y in zip( *curves[i] ):
+                pts.append( (x,y) )
+        
+        
+        xvals = np.linspace(0, sz[0], num=sz_upsample[0])
+        yvals = np.linspace(0, sz[1], num=sz_upsample[1])
+        
+        indices = set()
+        
+        for x,y in pts:
+            print x,y
+            xbin = np.digitize([x],xvals)[0]
+            ybin = np.digitize([y],yvals)[0]
+            
+            im_new[xbin,ybin] = 1.
+            indices.add((xbin,ybin))
+            
+            #print xbin,ybin
+            #print
+        figure()
+        pylab.title("upsampled unfilled")
+        imshow(im_new.T, interpolation='none')
+        #show()
+        
+        
+        
+        
+        # Flood fill:
+        start_pt = (sz_upsample[0]/2.,sz_upsample[1]/2.) #ASSUME THE START POINT IS CONTAINED
+        to_visit = set([ start_pt,])
+        visited = indices.copy()
+        
+        
+        while to_visit:
+            
+            # Pop the first element:
+            for e in to_visit:
+                break
+            to_visit.remove(e)
+            
+            if e in visited:
+                continue
+            
+            x,y=e
+            
+            # Add the neighbours:
+            for adj_pt in [(x-0,y-1), (x-0,y+1),(x-1,y-0),(x+1,y+0)]:
+                if not adj_pt in visited:
+                    to_visit.add(adj_pt)
+            visited.add( e )
+            
+        
+        
+        print len(visited)
+        
+        for x,y in visited:
+            im_new[x,y] = 1
+        
+        
+        
+        figure()
+        pylab.title("upsampled filled")
+        imshow(im_new.T, interpolation='none')
+        #show()
+        
+        # Downsampled image:
+        im_new = imresize(im_new, sz,interp='bilinear')
+        
+
+        figure()
+        pylab.title("downsampled filled")
+        imshow(im_new.T, interpolation='none')
+        
+        show()
+        
+        
+        assert(0)
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         im = zeros(self.im_norm.shape)
@@ -404,18 +510,18 @@ def test_fits(im_norm, (X0,X1,Y0,Y1), edge_types):
     
      
     
-    #p = minimize(tmpl.image_distance, p0, method='Nelder-Mead') #, maxiter=1000,maxfun=1000)
+    p = minimize(tmpl.image_distance, p0, method='Nelder-Mead') #, maxiter=1000,maxfun=1000)
     
-    p =  np.array([ 107.16361691,  115.12643946,   51.98507228,  114.63592808,
-         51.77483912,   39.95369715,  108.007557  ,   40.08943   ,
-        108.44392364,   54.44782343,   99.78542787,   71.16922936,
-        127.09163972,   69.52290702,  122.6773119 ,   88.97755043,
-        108.06189382,   80.79077168,  107.13091062,   97.45627773,
-         98.49957312,  111.20334618,   80.27707309,  113.27985432,
-         86.76490985,  136.13309015,   70.23518408,  138.15139454,
-         78.87377298,  114.78391742,   62.17470862,  110.72425835,
-         52.32592034,   93.77664198,   52.30943143,   65.18547157,
-         53.43415438,   40.71936311,   92.72767322,   40.00852822])
+    #p =  np.array([ 107.16361691,  115.12643946,   51.98507228,  114.63592808,
+    #     51.77483912,   39.95369715,  108.007557  ,   40.08943   ,
+    #    108.44392364,   54.44782343,   99.78542787,   71.16922936,
+    #    127.09163972,   69.52290702,  122.6773119 ,   88.97755043,
+    #    108.06189382,   80.79077168,  107.13091062,   97.45627773,
+    #     98.49957312,  111.20334618,   80.27707309,  113.27985432,
+    #     86.76490985,  136.13309015,   70.23518408,  138.15139454,
+    #     78.87377298,  114.78391742,   62.17470862,  110.72425835,
+    #     52.32592034,   93.77664198,   52.30943143,   65.18547157,
+    #     53.43415438,   40.71936311,   92.72767322,   40.00852822])
            
     print p
     
