@@ -16,6 +16,11 @@ from skimage.morphology._skeletonize import medial_axis
 from numpy.linalg.linalg import norm
 from itertools import chain
 from scipy.misc.pilutil import imresize
+import skimage
+from logilab.common import optparser
+import skimage.draw
+
+
 
 def evaluate_bspline(points, npoints):
     points = np.array(points)
@@ -123,19 +128,10 @@ def build_distsquare_im(sz, pt):
     dXsq = np.tile(dxs**2, (sz[1],1)).T
     dYsq = np.tile(dys**2, (sz[0],1))
     
-    #print dXsq.shape
-    #print dYsq.shape
-    
-    #figure(); imshow(dXsq.T); pylab.colorbar()
-    #figure(); imshow(dYsq.T); pylab.colorbar()
-    #pylab.show()
     
     
     dist_sq = dXsq+ dYsq
     
-    #figure(); imshow(dist_sq.T); pylab.colorbar();
-    #pylab.plot([pt[0]],[pt[1]],'x')
-    #pylab.show()
 
     return dist_sq
 
@@ -251,6 +247,8 @@ class PieceSplineTemplate(object):
     
     
     def image_distance(self, p):
+        do_plot=False
+        
         X = (self.X1 - self.X0) /2
         Y = (self.Y1 - self.Y0) /2
         ctrl_pts = self.optvector_to_ctrl_points(p)
@@ -263,8 +261,8 @@ class PieceSplineTemplate(object):
         
         
         pts = []
-        curves = PieceSplineTemplate.control_points_to_curves(ctrl_pts, npoints=300 * upsample)
-        curves = PieceSplineTemplate.control_points_to_curves(ctrl_pts, npoints=300 * upsample * 3)
+        #curves = PieceSplineTemplate.control_points_to_curves(ctrl_pts, npoints=300 * upsample)
+        curves = PieceSplineTemplate.control_points_to_curves(ctrl_pts, npoints=100 * upsample)
         for i in range(4):
             for x,y in zip( *curves[i] ):
                 pts.append( (x,y) )
@@ -275,72 +273,136 @@ class PieceSplineTemplate(object):
         
         indices = set()
         
+        pts_upscale = []
         for x,y in pts:
-            print x,y
+            #print x,y
             xbin = np.digitize([x],xvals)[0]
             ybin = np.digitize([y],yvals)[0]
             
             im_new[xbin,ybin] = 1.
             indices.add((xbin,ybin))
+        
+            p = (xbin,ybin)
+            if not pts_upscale or pts_upscale[-1] != p: 
+                pts_upscale.append(p)
             
             #print xbin,ybin
             #print
-        figure()
-        pylab.title("upsampled unfilled")
-        imshow(im_new.T, interpolation='none')
-        #show()
         
         
+        pts_upscale = [ (float(x),float(y)) for (x,y) in pts_upscale]
+        
+        x_coords,y_coords= zip(*pts_upscale)
+        x_coords,y_coords = np.array(x_coords), np.array(y_coords)
+
         
         
-        # Flood fill:
-        start_pt = (sz_upsample[0]/2.,sz_upsample[1]/2.) #ASSUME THE START POINT IS CONTAINED
-        to_visit = set([ start_pt,])
-        visited = indices.copy()
+        [rr,cc] = skimage.draw.polygon( x_coords,y_coords, sz_upsample )
         
+        op = im_new
+        op[rr,cc] = 1.0
         
-        while to_visit:
-            
-            # Pop the first element:
-            for e in to_visit:
-                break
-            to_visit.remove(e)
-            
-            if e in visited:
-                continue
-            
-            x,y=e
-            
-            # Add the neighbours:
-            for adj_pt in [(x-0,y-1), (x-0,y+1),(x-1,y-0),(x+1,y+0)]:
-                if not adj_pt in visited:
-                    to_visit.add(adj_pt)
-            visited.add( e )
-            
+        #print op.shape
         
-        
-        print len(visited)
-        
-        for x,y in visited:
-            im_new[x,y] = 1
-        
-        
-        
-        figure()
-        pylab.title("upsampled filled")
-        imshow(im_new.T, interpolation='none')
-        #show()
         
         # Downsampled image:
-        im_new = imresize(im_new, sz,interp='bilinear')
+        op = op.astype('float')
+        print op.dtype
+        im_new = imresize(op, sz,interp='bilinear').astype('float') / 255.
+        print im_new.dtype
+#         figure()
+#         imshow(op)
+#         show()
+#         
+#         
+#         
+#         
+#         if do_plot:
+#             figure()
+#             pylab.title("upsampled unfilled")
+#             imshow(im_new.T, interpolation='none')
+#         #show()
+#         
+#         
+#         
+#         
+#         # Flood fill:
+#         start_pt = (sz_upsample[0]/2.,sz_upsample[1]/2.) #ASSUME THE START POINT IS CONTAINED
+#         to_visit = set([ start_pt,])
+#         #visited = indices.copy()
+#         visited = im_new.copy() #zeros(sz_upsample)
+#         
+#         
+#         while to_visit:
+#             
+#             # Pop the first element:
+#             for e in to_visit:
+#                 break
+#             to_visit.remove(e)
+#             
+#             x,y=e
+#             
+#             if visited[x,y]==1:
+#                 continue
+#             
+#             # Add the neighbours:
+#             for adj_pt in [(x-0,y-1), (x-0,y+1),(x-1,y-0),(x+1,y+0)]:
+#                 if visited[adj_pt[0],adj_pt[1]]==0:
+#                     to_visit.add(adj_pt)
+# 
+#             visited[x,y] = 1
+#             
+#         
+#         
+# 
+#         im_new = visited.copy()
+#         
+#         #exit(0)
+#         
+#         
+#         if do_plot:
+#             figure()
+#             pylab.title("upsampled filled")
+#             imshow(im_new.T, interpolation='none')
+#         #show()
+#         
+#         # Downsampled image:
+#         im_new = imresize(im_new, sz,interp='bilinear')
+#         
+# 
+#         if do_plot:
+#             figure()
+#             pylab.title("downsampled filled")
+#             imshow(im_new.T, interpolation='none')
+#             show()
+        print
+        for im in [im_new, self.im_norm]:
+            print im.dtype, im.min(), im.max() 
         
-
-        figure()
-        pylab.title("downsampled filled")
-        imshow(im_new.T, interpolation='none')
+        im_diff = (im_new - self.im_norm) **2
         
-        show()
+        #figure(); title("diff"); imshow(diff.T); pylab.colorbar();
+        #show()
+        #imshow(diff)
+        #pylab.show()
+        print " >> ", im_diff[100:100]
+        diff = np.sum(im_diff)
         
+        print self.call_cnt, diff
+        
+        
+        
+        if self.call_cnt % 10 == 0:
+            figure(); title("diff"); imshow(im_diff.T, vmin=0,vmax=1.); cbar = pylab.colorbar(ticks=[0.,1.]) # ; cbar.vmin=0.0, vmax=1.0
+            pylab.savefig("analysis/fitting_%04d.png"%self.call_cnt)
+            pylab.close("all")
+            #show()
+        self.call_cnt += 1
+        
+        return diff
+    
+    
+    
         
         assert(0)
         
