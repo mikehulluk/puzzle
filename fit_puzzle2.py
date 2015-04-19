@@ -179,7 +179,7 @@ def get_edge_types( im_norm,(x0,x1,y0,y1), img_idx ):
     axes[1][1].imshow(im_opt_out.T)
     pylab.savefig('analysis/%03d_bb_fit1.png'%img_idx)
 
-    return edge_types
+    return tuple(edge_types)
 
 
 
@@ -227,8 +227,8 @@ def fit_piece(fname,fname_idx):
     # Find if each edge is an 'innie', and 'outtie', or a 'flattie':
     edge_types = get_edge_types( im_norm,(x0,x1,y0,y1), img_idx=fname_idx )
     
-    
-    test_fits(im_norm, (x0,x1,y0,y1), edge_types)
+    #print type(edge_types)
+    test_fits(im_norm, (x0,x1,y0,y1), edge_types, piece_idx = fname_idx)
     
     pylab.show()
     pylab.close('all')
