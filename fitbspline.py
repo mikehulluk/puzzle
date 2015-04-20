@@ -1,4 +1,4 @@
-from matplotlib.pyplot import imshow, show, plot, title
+from matplotlib.pyplot import imshow, show, plot, title, subplots
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as si
@@ -70,15 +70,16 @@ def get_initial_ctrl_points((X0,X1,Y0,Y1), direction, edge_type, w):
         return pts
     w_out_mul = 1. if edge_type ==EdgeType.Outtie else -1.0     
     
+    
     #points = [[0,0],[1,1],[2,2],[3,3]]
     if direction == Dir.Up:
         points = [
                   startpt,
                   [(X+startpt[0])/2., Y1],
                   [X+w/2, Y1],
-                  [X+w, Y1+w*2*w_out_mul],
-                  [X, Y1+w*2*w_out_mul],
-                  [X-w, Y1+w*2*w_out_mul],
+                  [X+w, Y1+w*1.5*w_out_mul],
+                  [X,   Y1+w*2.0*w_out_mul],
+                  [X-w, Y1+w*1.5*w_out_mul],
                   [X-w/2, Y1],
                   [(X+endpt[0])/2., Y1],
                   endpt,
@@ -88,9 +89,9 @@ def get_initial_ctrl_points((X0,X1,Y0,Y1), direction, edge_type, w):
                   startpt,
                   [(X+startpt[0])/2., Y0],
                   [X-w/2, Y0],
-                  [X-w, Y0-w*2*w_out_mul],
-                  [X, Y0-w*2*w_out_mul],
-                  [X+w, Y0-w*2*w_out_mul],
+                  [X-w, Y0-w*1.5*w_out_mul],
+                  [X,   Y0-w*2.0*w_out_mul],
+                  [X+w, Y0-w*1.5*w_out_mul],
                   [X+w/2, Y0],
                   [(X+endpt[0])/2, Y0],
                   endpt,
@@ -100,9 +101,9 @@ def get_initial_ctrl_points((X0,X1,Y0,Y1), direction, edge_type, w):
                   startpt,
                   [X1, (Y+startpt[1])/2.],
                   [X1, Y-w/2],
-                  [X1+w*2*w_out_mul, Y-w],
-                  [X1+w*2*w_out_mul, Y],
-                  [X1+w*2*w_out_mul, Y+w],
+                  [X1+w*1.5*w_out_mul, Y-w],
+                  [X1+w*2.0*w_out_mul, Y],
+                  [X1+w*1.5*w_out_mul, Y+w],
                   [X1, Y+w/2],
                   [X1, (Y+endpt[1])/2.],
                   endpt,
@@ -112,9 +113,9 @@ def get_initial_ctrl_points((X0,X1,Y0,Y1), direction, edge_type, w):
                   startpt,
                   [X0, (Y+startpt[1])/2.],
                   [X0, Y+w/2],
-                  [X0-w*2*w_out_mul, Y+w],
-                  [X0-w*2*w_out_mul, Y],
-                  [X0-w*2*w_out_mul, Y-w],
+                  [X0-w*1.5*w_out_mul, Y+w],
+                  [X0-w*2.0*w_out_mul, Y],
+                  [X0-w*1.5*w_out_mul, Y-w],
                   [X0, Y-w/2],
                   [X0, (Y+endpt[1])/2.],
                   endpt,
@@ -124,19 +125,6 @@ def get_initial_ctrl_points((X0,X1,Y0,Y1), direction, edge_type, w):
 
 
 
-#def build_distsquare_im(sz, pt):
-#    xs = np.arange(0, sz[0])
-#    ys = np.arange(0, sz[1])
-#    
-#    dxs = xs - pt[0]
-#    dys = ys - pt[1]
-#    
-#    dXsq = np.tile(dxs**2, (sz[1],1)).T
-#    dYsq = np.tile(dys**2, (sz[0],1))
-#    dist_sq = dXsq+ dYsq
-    
-
-#    return dist_sq
 
 class PieceSplineTemplate(object):
     def __init__(self, (X0,X1,Y0,Y1), edge_types, im_norm):
@@ -261,14 +249,14 @@ class PieceSplineTemplate(object):
         return vecs
     
     
-    def image_distance(self, p, piece_idx):
+    def image_distance(self, p, piece_idx, upsample):
         do_plot=False
         
         X = (self.X1 - self.X0) /2
         Y = (self.Y1 - self.Y0) /2
         ctrl_pts = self.optvector_to_ctrl_points(p)
         
-        upsample = 3
+        
         
         sz = self.im_norm.shape
         sz_upsample = (sz[0]*upsample, sz[1]*upsample)
@@ -314,14 +302,14 @@ class PieceSplineTemplate(object):
         im_diff = (im_new - self.im_norm) **2
         
 
-        print " >> ", im_diff[100,100]
+        #print " >> ", im_diff[100,100]
         diff = np.sum(im_diff)
         
         print self.call_cnt, diff
         
         
         
-        if self.call_cnt % 10 == 0:
+        if self.call_cnt % 50 == 0:
             f,(ax1,ax2) = pylab.subplots(1, 2, squeeze=True)
             f.suptitle('Res: %0.2f'% diff )
             pylab.sca(ax1)
@@ -330,7 +318,7 @@ class PieceSplineTemplate(object):
             self.plot_ctrl_points(ctrl_pts=ctrl_pts, plot_image=True, ax=ax2, plot_spline=True)
             
             
-            pylab.savefig("analysis/fitting_%03d_iteration_%04d.png"%(piece_idx, self.call_cnt) )
+            pylab.savefig("analysis/fitting_%03d_upsample%02d_iteration_%04d.png"%(piece_idx, upsample, self.call_cnt) )
             pylab.close("all")
             #show()
         self.call_cnt += 1
@@ -367,69 +355,42 @@ def test_fits(im_norm, (X0,X1,Y0,Y1), edge_types, piece_idx):
     
     pylab.close('all')
     
-    fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx) 
     
-    fit_func(p0)
     
-    #tmpl.image_distance( p0 )
+    # Rough fit:
     
-     
+    fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 1) 
+    p0 = minimize(fit_func, p0, method='Nelder-Mead', tol=0.1).x
+    fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 1) 
+    p0 = minimize(fit_func, p0, method='Nelder-Mead', tol=0.5).x    
+    fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 1) 
+    p0 = minimize(fit_func, p0, method='Nelder-Mead', tol=0.5).x    
     
-    p = minimize(fit_func, p0, method='Nelder-Mead', tol=1.)
     
-    print type(p) 
-    p = p.x
-    
-    #p =  np.array([ 107.16361691,  115.12643946,   51.98507228,  114.63592808,
-    #     51.77483912,   39.95369715,  108.007557  ,   40.08943   ,
-    #    108.44392364,   54.44782343,   99.78542787,   71.16922936,
-    #    127.09163972,   69.52290702,  122.6773119 ,   88.97755043,
-    #    108.06189382,   80.79077168,  107.13091062,   97.45627773,
-    #     98.49957312,  111.20334618,   80.27707309,  113.27985432,
-    #     86.76490985,  136.13309015,   70.23518408,  138.15139454,
-    #     78.87377298,  114.78391742,   62.17470862,  110.72425835,
-    #     52.32592034,   93.77664198,   52.30943143,   65.18547157,
-    #     53.43415438,   40.71936311,   92.72767322,   40.00852822])
-           
+    #fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 3) 
+    #p0 = minimize(fit_func, p0, method='Nelder-Mead', tol=0.5).x    
+    ## Refine the fit:
+    #fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 5) 
+    #p = minimize(fit_func, p0, method='Nelder-Mead', tol=0.1).x
+
+    p = p0
+
     print p
     
     p_dash = tmpl.optvector_to_ctrl_points(p)
-    tmpl.plot_ctrl_points(ctrl_pts=p_dash)
-    #tmpl.plot_ctrl_points(ctrl_pts=p0_dash, plot_image=False)
-    
-    print
-    for (t,tt) in zip(p,p0 ):
-        print t,tt
-    #imshow()
-    pylab.show()
-    
-    assert(0)
-    #fig = plt.figure()
-    #imshow(im_norm.T) 
-    #for i in range(4):
-    #    ctrlx, ctrly =  zip(*ctrl_pts_0[i])
-    #    plt.plot(ctrlx, ctrly, '-mo')
-    #    plt.plot(curves[i][0], curves[i][1], '-g')
     
     
-    #for i, (direction, edge_type) in enumerate(zip( Dir.directions, edge_types)):
-    #      
-    #    points  = get_initial_ctrl_points((X0,X1,Y0,Y1), direction=direction, edge_type=edge_type, w=10)
-    #    (x_ctrl, y_ctrl) = zip(*points)
-    #    (x_i, y_i)  = evaluate_bspline(points)
-    #
-    #    
-    #    #==============================================================================
-    #    # Plot
-    #    #==============================================================================
-#
-#        plt.plot(x_ctrl, y_ctrl, '-og')
-#        plt.plot(x_i, y_i, 'r')
-        #plt.title('Splined f(x(t), y(t))')
+    # Save the final fit:
+    figure()
+    f,ax = subplots(1,1,squeeze=True) 
+    tmpl.plot_ctrl_points(ctrl_pts=p_dash, ax = ax)
+    pylab.savefig("analysis/fitting_%02d.png" % piece_idx)
+    pylab.close('all')
     
-        #break
+    #pylab.show()
+    
    
-    plt.show()
+    #plt.show()
     
     
     

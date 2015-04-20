@@ -228,8 +228,13 @@ def fit_piece(fname,fname_idx):
     edge_types = get_edge_types( im_norm,(x0,x1,y0,y1), img_idx=fname_idx )
     
     #print type(edge_types)
+    
+    #if fname_idx != 2:
+    #    return
+    
     test_fits(im_norm, (x0,x1,y0,y1), edge_types, piece_idx = fname_idx)
     
+    #assert(0)
     pylab.show()
     pylab.close('all')
     
