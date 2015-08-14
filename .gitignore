@@ -2,3 +2,4 @@ analysis
 build
 _cache
 weights.pckl
+analysis_old

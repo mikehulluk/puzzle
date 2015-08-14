@@ -21,6 +21,7 @@ from logilab.common import optparser
 import skimage.draw
 import functools
 from caching import joblib_memory
+from scipy.optimize._basinhopping import basinhopping
 
 
 
@@ -318,7 +319,7 @@ class PieceSplineTemplate(object):
             self.plot_ctrl_points(ctrl_pts=ctrl_pts, plot_image=True, ax=ax2, plot_spline=True)
             
             
-            pylab.savefig("analysis/fitting_%03d_upsample%02d_iteration_%04d.png"%(piece_idx, upsample, self.call_cnt) )
+            pylab.savefig("analysis/fitting_%03d_upsample%02d_iteration_%05d.png"%(piece_idx, upsample, self.call_cnt) )
             pylab.close("all")
             #show()
         self.call_cnt += 1
@@ -358,14 +359,20 @@ def test_fits(im_norm, (X0,X1,Y0,Y1), edge_types, piece_idx):
     
     
     # Rough fit:
-    
+    method = 'Powell'
     fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 1) 
     p0 = minimize(fit_func, p0, method='Nelder-Mead', tol=0.1).x
-    fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 1) 
-    p0 = minimize(fit_func, p0, method='Nelder-Mead', tol=0.5).x    
-    fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 1) 
-    p0 = minimize(fit_func, p0, method='Nelder-Mead', tol=0.5).x    
+    #fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 1) 
+    #p0 = minimize(fit_func, p0, method=method, tol=0.1).x    
+    #fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 1) 
+    #p0 = minimize(fit_func, p0, method='Anneal', tol=0.1).x    
     
+    fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 2) 
+    minimizer_kwargs = {"method": "Nelder-Mead"}
+    p0 = basinhopping(fit_func, p0, minimizer_kwargs=minimizer_kwargs, niter=200).x
+    
+    #print ret
+    #assert(0)
     
     #fit_func = functools.partial( tmpl.image_distance, piece_idx=piece_idx, upsample = 3) 
     #p0 = minimize(fit_func, p0, method='Nelder-Mead', tol=0.5).x    
@@ -383,8 +390,11 @@ def test_fits(im_norm, (X0,X1,Y0,Y1), edge_types, piece_idx):
     # Save the final fit:
     figure()
     f,ax = subplots(1,1,squeeze=True) 
-    tmpl.plot_ctrl_points(ctrl_pts=p_dash, ax = ax)
+    tmpl.plot_ctrl_points(ctrl_pts=p_dash, ax = ax, plot_spline=True)
     pylab.savefig("analysis/fitting_%02d.png" % piece_idx)
+    
+    #pylab.show()
+    
     pylab.close('all')
     
     #pylab.show()
